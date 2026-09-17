@@ -107,14 +107,14 @@ The launcher runs `chair_eval.py` after inference and reports CHAIRs, CHAIRi, Re
 
 ## BEAF
 
-**Priority: run BEAF first** (BEAF > POPE-COCO > CHAIR).
+**Priority: run BEAF first** (BEAF > POPE-COCO > CHAIR). This pipeline follows the official BEAF run procedure from `kaistami/BEAF`: iterate `beaf_qna.json` in id order, ask each POPE-style yes/no question, collect model answers into `[{"id": int, "answer": str}]`, then run `beaf_metric.py`.
 
 Configured source paths:
 
 - `MODEL_PATH`: LLaVA checkpoint directory or Hugging Face model ID
-- `BEAF_IMAGE_DIR`: directory containing both original COCO JPEGs and manipulated PNGs from the BEAF dataset
+- `BEAF_IMAGE_DIR`: directory containing both original COCO JPEGs and manipulated images (`_NN.png` and `_NN.jpg`)
 - `BEAF_QNA_FILE`: `beaf_qna.json` (ver1, 26064 entries)
-- `BEAF_CAPTION_FILE`: SHIELD first-round caption JSONL (reuses POPE captions for COCO originals; manipulated images fall back to their original image's caption)
+- `BEAF_CAPTION_FILE`: SHIELD first-round caption JSONL — set to the POPE caption file: the 500 original BEAF images are exactly the 500 POPE-COCO images (verified 100% overlap), and manipulated images map back to their original image's caption via the official `image[:-7] + '.jpg'` rule
 - `OUTPUT_DIR`: generated-answer destination
 
 ### Data Download
@@ -130,13 +130,13 @@ bash experiments/scripts/run_llava15_beaf.sh --config experiments/configs/llava1
 bash experiments/scripts/run_llava15_beaf.sh --config experiments/configs/llava15_beaf.env
 ```
 
-The launcher runs inference then `beaf_metric.py` and reports: Accuracy, Precision, Recall, F1, TU, IG, SB+, SB-, ID, F1(TU,ID).
+The launcher runs inference then `beaf_metric.py` and reports: Accuracy, Precision, Recall, F1, TU, IG, SB+, SB-, ID, F1(TU,ID). Expected full-run duration is roughly 30-40 hours on one GPU (26,064 questions; the SHIELD pipeline recomputes the CLIP attack per question).
 
 ### BEAF Eval Notes
 
-- The official `beaf_metric.py` (from `kaist-ami/BEAF`) has hardcoded assert values (`26118`, `1727`) that do not match ver1 data (`26064`, `1778`). The included `experiments/eval/beaf_metric.py` fixes this by computing denominators from the data.
-- Model answers must be a JSON array of `{"id": int, "answer": str}` in strict id order (0..26063).
-- For manipulated images (`.png`), the inference script looks up captions using the corresponding original COCO image name.
+- The included `experiments/eval/beaf_metric.py` is the official metric from `kaistami/BEAF` with two documented deviations: the stale hardcoded asserts (`26118`/`1727`) are replaced by denominators computed from the data (ver1: `26064`/`1778`), and answers containing neither `yes` nor `no` are counted as `no` (the official script crashes on them).
+- Model answers must be a JSON array of `{"id": int, "answer": str}` in strict id order (0..26063); every question must be answered.
+- The inference script looks up captions using the corresponding original COCO image name for manipulated images (`image[:-7] + '.jpg'`, matching the official metric's mapping).
 
 ## Runtime Prerequisites
 

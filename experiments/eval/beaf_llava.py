@@ -74,9 +74,7 @@ def eval_model(args):
         image = Image.open(image_path)
         image_tensor = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
 
-        caption_image_key = image_file
-        if not image_file.endswith('.jpg'):
-            caption_image_key = image_file[:-7] + '.jpg'
+        caption_image_key = image_file if line["orig_img"] else image_file[:-7] + '.jpg'
 
         shield_kw = model.shield_prepare(image, image_tensor, caption_image_key, use_cd=args.use_cd)
 

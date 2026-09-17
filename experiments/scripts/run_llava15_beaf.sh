@@ -99,5 +99,6 @@ fi
 if [[ -n "${HF_HUB_DISABLE_XET:-}" ]]; then
     export HF_HUB_DISABLE_XET
 fi
+
 CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES" "${inference_command[@]}"
 "${evaluation_command[@]}"
