@@ -72,6 +72,58 @@ class LLaVA15PopeLauncherTests(unittest.TestCase):
 
 
 class LLaVA15ChairLauncherTests(unittest.TestCase):
+    def test_dry_run_exports_hf_home_when_configured(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "server.env"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "MODEL_PATH=/models/llava-v1.5-7b",
+                        "COCO_IMAGE_DIR=/datasets/coco/val2014",
+                        "POPE_DATA_DIR=/datasets/pope/coco",
+                        "POPE_CAPTION_FILE=/datasets/captions/pope.jsonl",
+                        "OUTPUT_DIR=/results/shield",
+                        "CUDA_VISIBLE_DEVICES=0",
+                        "SEED=42",
+                        "CD_ALPHA=2.0",
+                        "CD_BETA=0.35",
+                        "NOISE_STEP=999",
+                        "THE=0.011",
+                        "GAMMA_GAIN=3.0",
+                        "GAMMA_REDUCE=3.0",
+                        "GAIN_PER=0.5",
+                        "REDUCE_PER=0.0",
+                        "BIAS_WEIGHT=0.1",
+                        "BIAS_SAMPLE_NUM=32",
+                        "CW_EPSILON=0.14",
+                        "CW_NUM_STEPS=30",
+                        "CW_C=12",
+                        "CW_LR=0.14",
+                        "MAX_NEW_TOKENS=1024",
+                        "HF_HOME=/data/hf_cache",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    "bash",
+                    str(LAUNCHER),
+                    "--config",
+                    str(config_path),
+                    "--dry-run",
+                ],
+                cwd=REPOSITORY_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("HF_HOME=/data/hf_cache", completed.stdout)
+
     def test_dry_run_uses_chair_protocol_and_author_defaults(self):
         with tempfile.TemporaryDirectory() as directory:
             config_path = Path(directory) / "chair.env"

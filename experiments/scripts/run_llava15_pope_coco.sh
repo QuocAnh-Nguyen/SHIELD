@@ -87,6 +87,9 @@ command=(
 )
 
 printf 'CUDA_VISIBLE_DEVICES=%s\n' "$CUDA_VISIBLE_DEVICES"
+if [[ -n "${HF_HOME:-}" ]]; then
+    printf 'HF_HOME=%s\n' "$HF_HOME"
+fi
 printf '%q ' "${command[@]}"
 printf '\n'
 
@@ -94,4 +97,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     exit 0
 fi
 
+if [[ -n "${HF_HOME:-}" ]]; then
+    export HF_HOME
+fi
 CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES" "${command[@]}"

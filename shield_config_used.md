@@ -23,6 +23,11 @@ Change only the path and runtime values in these files when the server paths are
 
 Both files are shell environment files. Quote any value containing spaces, for example `PROMPT="Describe this image."`.
 
+Optional runtime variables:
+
+- `CUDA_VISIBLE_DEVICES`: GPU index to use (default `0`). On a single-GPU server leave it as `0`; on a multi-GPU server set it to a free GPU index, for example `CUDA_VISIBLE_DEVICES=3`.
+- `HF_HOME`: Hugging Face cache directory (default empty = `~/.cache/huggingface`). Set it to a large-disk location, for example `HF_HOME=/data/anhnq/hf_cache`, when the home partition has less than ~20 GB free. The launchers export it automatically when non-empty.
+
 ## Base Model
 
 - Model: `liuhaotian/llava-v1.5-7b`
@@ -256,3 +261,4 @@ Paste the error log into this chat so the agent can fix it. Common issues:
 pip uninstall -y bitsandbytes
 python -c "from transformers import AutoModelForCausalLM; print('transformers OK')"
 ```
+- Hugging Face `Not enough free disk space to download the file`: set `HF_HOME` in the `.env` config to a directory with at least 20 GB free (the model needs ~14 GB plus ~2 GB for CLIP), then rerun. When `HF_HOME` is empty the launchers use the system default (`~/.cache/huggingface`).
