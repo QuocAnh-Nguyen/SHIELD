@@ -6,7 +6,10 @@ sentencepiece==0.1.99
 shortuuid
 accelerate==0.21.0
 peft==0.4.0
-bitsandbytes==0.41.0
+# bitsandbytes removed: unused by SHIELD (fp16 only), and its 0.41.0 CUDA setup
+# fails on servers whose CUDA runtime libs live inside the pip torch wheel
+# (libcusparse.so.11 not on LD_LIBRARY_PATH), breaking the transformers import
+# chain through accelerate. Install manually only if quantized loading is needed.
 numpy<2
 scikit-learn==1.2.2
 gradio==3.35.2

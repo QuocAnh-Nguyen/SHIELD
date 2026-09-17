@@ -145,6 +145,8 @@ pip install torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorc
 pip install -r requirements.txt
 ```
 
+`bitsandbytes` has been removed from `requirements.txt` because SHIELD runs fp16 only and its 0.41.0 CUDA setup breaks the transformers import chain on servers where CUDA runtime libraries are bundled inside the pip torch wheel. If an existing environment still has it installed, remove it with `pip uninstall -y bitsandbytes`.
+
 Install the additional CHAIR dependency before evaluation:
 
 ```bash
@@ -248,3 +250,9 @@ Paste the error log into this chat so the agent can fix it. Common issues:
 - CUDA OOM: reduce `MAX_NEW_TOKENS` or split the question file into chunks
 - Missing image file: check `BEAF_IMAGE_DIR` or `COCO_IMAGE_DIR` config values
 - Metric crash: check that `beaf_qna.json` entry count matches the answer file length
+- `bitsandbytes` CUDA Setup failure at import (`RuntimeError: CUDA Setup failed despite GPU being available`): SHIELD does not use quantization. Uninstall it and rerun:
+
+```bash
+pip uninstall -y bitsandbytes
+python -c "from transformers import AutoModelForCausalLM; print('transformers OK')"
+```
