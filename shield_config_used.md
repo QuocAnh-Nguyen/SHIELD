@@ -1,0 +1,250 @@
+# SHIELD Configuration Used
+
+## Scope
+
+This document records the prepared server-side LLaVA-1.5-7B SHIELD launch configuration. No local model inference, dataset evaluation, or benchmark result was run.
+
+## Server Environment
+
+- Server paths confirmed by the user:
+  - BEAF dataset (original JPGs + manipulated PNGs + `beaf_qna.json`): `/home/nvidia-lab/ai4life/phuongnh/vlm-truth/data/beaf/`
+  - COCO val2014 images (actual JPGs): `/home/nvidia-lab/ai4life/phuongnh/vlm-truth/data/coco2014/val2014/val2014/`
+  - `beaf_qna.json` (ver1, 26064 entries) already exists at `/home/nvidia-lab/ai4life/phuongnh/vlm-truth/data/beaf/beaf_qna.json`
+  - Official `beaf_metric.py` already exists on the server at the same `beaf/` folder
+- Server has GPU(s); run everything on the server.
+
+## Editable Configuration Files
+
+Change only the path and runtime values in these files when the server paths are available:
+
+- POPE-COCO: `experiments/configs/llava15_pope_coco.env` (already set to server paths)
+- CHAIR: `experiments/configs/llava15_chair.env` (already set to server paths)
+- BEAF: `experiments/configs/llava15_beaf.env` (already set to server paths)
+
+Both files are shell environment files. Quote any value containing spaces, for example `PROMPT="Describe this image."`.
+
+## Base Model
+
+- Model: `liuhaotian/llava-v1.5-7b`
+- SHIELD uses the repository's vendored LLaVA implementation in `experiments/llava/`.
+- The launchers do not modify the original author scripts in `experiments/scripts/llava1.5_*.bash`.
+
+## Author SHIELD Defaults
+
+| Benchmark | cd_alpha | cd_beta | noise_step | the | gamma_gain | gamma_reduce | gain_per | reduce_per | bias_weight | bias_sample_num | cw_epsilon | cw_num_steps | cw_c | cw_lr | seed |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| POPE-COCO | 2.0 | 0.35 | 999 | 0.011 | 3.0 | 3.0 | 0.5 | 0.0 | 0.1 | 32 | 0.14 | 30 | 12 | 0.14 | 42 |
+| CHAIR | 2.0 | 0.35 | 500 | 0.002 | 3.0 | 3.0 | 0.55 | 0.0 | 0.01 | 32 | 0.14 | 30 | 12 | 0.02 | 42 |
+| BEAF | 2.0 | 0.35 | 999 | 0.011 | 3.0 | 3.0 | 0.5 | 0.0 | 0.1 | 32 | 0.14 | 30 | 12 | 0.14 | 42 |
+
+These values match the default expansions in `experiments/scripts/llava1.5_pope_coco.bash` and `experiments/scripts/llava1.5_chair.bash`.
+
+## POPE-COCO
+
+Configured source paths:
+
+- `MODEL_PATH`: LLaVA checkpoint directory or Hugging Face model ID
+- `COCO_IMAGE_DIR`: COCO val2014 image directory
+- `POPE_DATA_DIR`: directory that contains `coco_pope_{random,popular,adversarial}.json`
+- `POPE_CAPTION_FILE`: SHIELD first-round caption JSONL
+- `OUTPUT_DIR`: generated-answer destination
+
+The launcher generates answers with `model.generate`; it does not compute yes/no logits.
+
+Preview the resolved command before a server run:
+
+```bash
+bash experiments/scripts/run_llava15_pope_coco.sh --config experiments/configs/llava15_pope_coco.env --split random --dry-run
+```
+
+Run each POPE split:
+
+```bash
+bash experiments/scripts/run_llava15_pope_coco.sh --config experiments/configs/llava15_pope_coco.env --split random
+bash experiments/scripts/run_llava15_pope_coco.sh --config experiments/configs/llava15_pope_coco.env --split popular
+bash experiments/scripts/run_llava15_pope_coco.sh --config experiments/configs/llava15_pope_coco.env --split adversarial
+```
+
+Evaluate each generated JSONL with the matching ground truth using `experiments/eval/eval_pope.py`. It reports Precision, Recall, F1, Accuracy, and yes-answer proportion.
+
+```bash
+python experiments/eval/eval_pope.py \
+  --gt_files /path/to/coco_pope_random.json \
+  --gen_files /path/to/llava15_coco_pope_random_answers_*.jsonl
+```
+
+## CHAIR
+
+Configured source paths:
+
+- `MODEL_PATH`: LLaVA checkpoint directory or Hugging Face model ID
+- `COCO_IMAGE_DIR`: COCO val2014 image directory
+- `CHAIR_QUESTION_FILE`: selected CHAIR question JSONL
+- `CHAIR_CAPTION_FILE`: SHIELD first-round caption JSONL
+- `CHAIR_CACHE_FILE`: `chair.pkl` cache or equivalent server path
+- `OUTPUT_DIR`: generated-caption destination
+
+The prepared CHAIR configuration uses the required protocol:
+
+- Prompt: `Describe this image.`
+- `MAX_NEW_TOKENS=128`
+- The server should provide a fixed 500-image CHAIR question file; the included original question file has more records and must be replaced or filtered before this benchmark run.
+
+Preview or run:
+
+```bash
+bash experiments/scripts/run_llava15_chair.sh --config experiments/configs/llava15_chair.env --dry-run
+bash experiments/scripts/run_llava15_chair.sh --config experiments/configs/llava15_chair.env
+```
+
+The launcher runs `chair_eval.py` after inference and reports CHAIRs, CHAIRi, Recall, and Caption Length.
+
+## BEAF
+
+**Priority: run BEAF first** (BEAF > POPE-COCO > CHAIR).
+
+Configured source paths:
+
+- `MODEL_PATH`: LLaVA checkpoint directory or Hugging Face model ID
+- `BEAF_IMAGE_DIR`: directory containing both original COCO JPEGs and manipulated PNGs from the BEAF dataset
+- `BEAF_QNA_FILE`: `beaf_qna.json` (ver1, 26064 entries)
+- `BEAF_CAPTION_FILE`: SHIELD first-round caption JSONL (reuses POPE captions for COCO originals; manipulated images fall back to their original image's caption)
+- `OUTPUT_DIR`: generated-answer destination
+
+### Data Download
+
+The BEAF dataset already exists on the server. No download needed.
+
+### Run
+
+Preview or run:
+
+```bash
+bash experiments/scripts/run_llava15_beaf.sh --config experiments/configs/llava15_beaf.env --dry-run
+bash experiments/scripts/run_llava15_beaf.sh --config experiments/configs/llava15_beaf.env
+```
+
+The launcher runs inference then `beaf_metric.py` and reports: Accuracy, Precision, Recall, F1, TU, IG, SB+, SB-, ID, F1(TU,ID).
+
+### BEAF Eval Notes
+
+- The official `beaf_metric.py` (from `kaist-ami/BEAF`) has hardcoded assert values (`26118`, `1727`) that do not match ver1 data (`26064`, `1778`). The included `experiments/eval/beaf_metric.py` fixes this by computing denominators from the data.
+- Model answers must be a JSON array of `{"id": int, "answer": str}` in strict id order (0..26063).
+- For manipulated images (`.png`), the inference script looks up captions using the corresponding original COCO image name.
+
+## Runtime Prerequisites
+
+Use a dedicated server environment for SHIELD. The repository specifies Python 3.10, PyTorch 2.0.1, TorchVision 0.15.2, and Transformers 4.31.0 in `README.md` and `requirements.txt`.
+
+The included author installation command targets CUDA 11.8:
+
+```bash
+conda create -n shield-env python=3.10
+conda activate shield-env
+pip install torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118
+pip install -r requirements.txt
+```
+
+Install the additional CHAIR dependency before evaluation:
+
+```bash
+pip install git+https://github.com/clips/pattern.git
+```
+
+## Validation Already Performed
+
+- `python3 -m unittest tests/test_llava15_pope_launcher.py -v`
+- `bash experiments/scripts/run_llava15_pope_coco.sh --dry-run`
+- `bash experiments/scripts/run_llava15_chair.sh --dry-run`
+- `bash experiments/scripts/run_llava15_beaf.sh --dry-run`
+- `python3 -m py_compile experiments/eval/object_hallucination_vqa_llava.py experiments/eval/chair-llava.py experiments/eval/beaf_llava.py experiments/eval/beaf_metric.py`
+- `bash -n experiments/scripts/run_llava15_pope_coco.sh experiments/scripts/run_llava15_chair.sh experiments/scripts/run_llava15_beaf.sh`
+
+The checks validate configuration parsing, resolved paths, author-default arguments, evaluator syntax, and shell syntax only. They do not load a checkpoint or access dataset images.
+
+## How to Run on the Server (Step by Step)
+
+### Step 0: Transfer the repository to the server
+
+```bash
+# On local machine, create a bundle of the repository (or push/pull via git)
+git archive HEAD -o shield_repo.tar.gz
+scp shield_repo.tar.gz nvidia-lab@SERVER_IP:~/ai4life/phuongnh/
+
+# On the server
+cd ~/ai4life/phuongnh
+tar xzf shield_repo.tar.gz -C vlm-truth/shield_repo
+cd vlm-truth/shield_repo
+```
+
+### Step 1: Create the conda environment on the server (one time only)
+
+```bash
+conda create -y -n shield-env python=3.10
+conda activate shield-env
+pip install torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118
+pip install -r requirements.txt
+pip install git+https://github.com/clips/pattern.git
+```
+
+Verify the environment:
+
+```bash
+python -c "import torch, torchvision, transformers; print(torch.__version__, torch.cuda.is_available())"
+```
+
+Expected: `2.0.1 True` (CUDA available on server).
+
+### Step 2: Run BEAF (priority 1)
+
+```bash
+# Preview the command (no model loaded):
+bash experiments/scripts/run_llava15_beaf.sh --config experiments/configs/llava15_beaf.env --dry-run
+
+# Run inference + metric:
+nohup bash experiments/scripts/run_llava15_beaf.sh --config experiments/configs/llava15_beaf.env > beaf_run.log 2>&1 &
+tail -f beaf_run.log
+```
+
+Results are written to `output/llava15_beaf_answers_seed42.json` and the metric table is printed at the end of `beaf_run.log` (Accuracy, Precision, Recall, F1, TU, IG, SB+, SB-, ID, F1(TU,ID)).
+
+### Step 3: Run POPE-COCO (priority 2)
+
+```bash
+# Preview:
+bash experiments/scripts/run_llava15_pope_coco.sh --config experiments/configs/llava15_pope_coco.env --split random --dry-run
+
+# Run all three splits:
+for split in random popular adversarial; do
+  nohup bash experiments/scripts/run_llava15_pope_coco.sh --config experiments/configs/llava15_pope_coco.env --split $split > pope_${split}.log 2>&1 &
+done
+tail -f pope_random.log
+```
+
+Then evaluate each generated answer file:
+
+```bash
+python experiments/eval/eval_pope.py \
+  --gt_files experiments/data/POPE/coco/coco_pope_random.json \
+  --gen_files output/llava15_coco_pope_random_answers_*.jsonl
+```
+
+Repeat with `popular` and `adversarial` for all three split results.
+
+### Step 4: Run CHAIR (priority 3)
+
+```bash
+bash experiments/scripts/run_llava15_chair.sh --config experiments/configs/llava15_chair.env --dry-run
+nohup bash experiments/scripts/run_llava15_chair.sh --config experiments/configs/llava15_chair.env > chair_run.log 2>&1 &
+tail -f chair_run.log
+```
+
+The launcher runs `chair_eval.py` after inference and prints CHAIRs, CHAIRi, Recall, and Caption Length.
+
+### Step 5: If something fails
+
+Paste the error log into this chat so the agent can fix it. Common issues:
+
+- CUDA OOM: reduce `MAX_NEW_TOKENS` or split the question file into chunks
+- Missing image file: check `BEAF_IMAGE_DIR` or `COCO_IMAGE_DIR` config values
+- Metric crash: check that `beaf_qna.json` entry count matches the answer file length

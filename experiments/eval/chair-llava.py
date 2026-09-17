@@ -49,12 +49,11 @@ def eval_model(args):
     for line in tqdm(questions):
         idx = line["question_id"]
         image_file = line["image"]
-        qs = line["text"]
-        cur_prompt = qs
+        cur_prompt = args.prompt or line["text"]
         if model.config.mm_use_im_start_end:
-            qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs
+            qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + cur_prompt
         else:
-            qs = DEFAULT_IMAGE_TOKEN + '\n' + qs
+            qs = DEFAULT_IMAGE_TOKEN + '\n' + cur_prompt
 
         conv = conv_templates[args.conv_mode].copy()
         conv.append_message(conv.roles[0], qs)
@@ -80,7 +79,7 @@ def eval_model(args):
                 temperature=args.temperature,
                 top_p=args.top_p,
                 top_k=args.top_k,
-                max_new_tokens=512,
+                max_new_tokens=args.max_new_tokens,
                 use_cache=True,
             )
 
@@ -115,6 +114,8 @@ if __name__ == "__main__":
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top_p", type=float, default=1)
     parser.add_argument("--top_k", type=int, default=None)
+    parser.add_argument("--prompt", type=str, default=None)
+    parser.add_argument("--max-new-tokens", type=int, default=512)
 
     parser.add_argument("--noise_step", type=int, default=500)
     parser.add_argument("--use_cd", action='store_true', default=False)

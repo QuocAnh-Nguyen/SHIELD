@@ -42,19 +42,27 @@ def eval_model(args):
         lr=args.cw_lr,
     )
 
-    questions = [json.loads(q) for q in open(os.path.expanduser(args.question_file), "r")]
+    with open(os.path.expanduser(args.question_file), "r") as f:
+        questions = json.load(f)
+
     answers_file = os.path.expanduser(args.answers_file)
     os.makedirs(os.path.dirname(answers_file), exist_ok=True)
-    ans_file = open(answers_file, "w")
+
+    results = []
     for line in tqdm(questions):
-        idx = line["question_id"]
+        idx = line["id"]
         image_file = line["image"]
-        qs = line["text"]
-        cur_prompt = qs
+        qs_text = line["question"]
+
+        image_path = os.path.join(args.image_folder, image_file)
+        if not os.path.exists(image_path):
+            results.append({"id": idx, "answer": ""})
+            continue
+
         if model.config.mm_use_im_start_end:
-            qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs
+            qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs_text
         else:
-            qs = DEFAULT_IMAGE_TOKEN + '\n' + qs
+            qs = DEFAULT_IMAGE_TOKEN + '\n' + qs_text
 
         conv = conv_templates[args.conv_mode].copy()
         conv.append_message(conv.roles[0], qs + " Please answer this question with one word.")
@@ -63,10 +71,14 @@ def eval_model(args):
 
         input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
 
-        image = Image.open(os.path.join(args.image_folder, image_file))
+        image = Image.open(image_path)
         image_tensor = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
 
-        shield_kw = model.shield_prepare(image, image_tensor, image_file, use_cd=args.use_cd)
+        caption_image_key = image_file
+        if not image_file.endswith('.jpg'):
+            caption_image_key = image_file[:-7] + '.jpg'
+
+        shield_kw = model.shield_prepare(image, image_tensor, caption_image_key, use_cd=args.use_cd)
 
         stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
         keywords = [stop_str]
@@ -94,25 +106,22 @@ def eval_model(args):
             outputs = outputs[:-len(stop_str)]
         outputs = outputs.strip()
 
-        ans_file.write(json.dumps({"question_id": idx,
-                                   "prompt": cur_prompt,
-                                   "text": outputs,
-                                   "model_id": model_name,
-                                   "image": image_file,
-                                   "metadata": {}}) + "\n")
-        ans_file.flush()
-    ans_file.close()
+        results.append({"id": idx, "answer": outputs})
+
+    with open(answers_file, "w") as f:
+        json.dump(results, f, indent=2)
+
+    print(f"Saved {len(results)} answers to {answers_file}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-path", type=str, default="facebook/opt-350m")
+    parser.add_argument("--model-path", type=str, default="liuhaotian/llava-v1.5-7b")
     parser.add_argument("--model-base", type=str, default=None)
-    parser.add_argument("--image-folder", type=str, default="")
-    parser.add_argument("--question-file", type=str, default="tables/question.jsonl")
-    parser.add_argument("--answers-file", type=str, default="answer.jsonl")
+    parser.add_argument("--image-folder", type=str, required=True)
+    parser.add_argument("--question-file", type=str, required=True)
+    parser.add_argument("--answers-file", type=str, required=True)
     parser.add_argument("--conv-mode", type=str, default="llava_v1")
-    parser.add_argument("--num-chunks", type=int, default=1)
-    parser.add_argument("--chunk-idx", type=int, default=0)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top_p", type=float, default=1)
     parser.add_argument("--top_k", type=int, default=None)
@@ -120,21 +129,21 @@ if __name__ == "__main__":
 
     parser.add_argument("--noise_step", type=int, default=500)
     parser.add_argument("--use_cd", action='store_true', default=False)
-    parser.add_argument("--cd_alpha", type=float, default=1.64)
-    parser.add_argument("--cd_beta", type=float, default=0.2)
+    parser.add_argument("--cd_alpha", type=float, default=2.0)
+    parser.add_argument("--cd_beta", type=float, default=0.35)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--the", type=float, default=0.011)
-    parser.add_argument("--gamma_gain", type=float, default=2.27)
+    parser.add_argument("--gamma_gain", type=float, default=3.0)
     parser.add_argument("--gamma_reduce", type=float, default=3.0)
     parser.add_argument("--gain_per", type=float, default=0.5)
     parser.add_argument("--reduce_per", type=float, default=0.0)
-    parser.add_argument("--bias_weight", type=float, default=0.15)
+    parser.add_argument("--bias_weight", type=float, default=0.1)
     parser.add_argument("--bias_sample_num", type=float, default=32)
     parser.add_argument("--cw_epsilon", type=float, default=0.14)
     parser.add_argument("--cw_num_steps", type=float, default=30)
     parser.add_argument("--cw_c", type=float, default=12)
     parser.add_argument("--cw_lr", type=float, default=0.14)
-    parser.add_argument("--caption-file", type=str, required=True, help="Path to the caption JSONL file")
+    parser.add_argument("--caption-file", type=str, required=True)
     args = parser.parse_args()
     set_seed(args.seed)
     eval_model(args)

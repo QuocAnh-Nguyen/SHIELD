@@ -1,0 +1,136 @@
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+LAUNCHER = REPOSITORY_ROOT / "experiments/scripts/run_llava15_pope_coco.sh"
+
+
+class LLaVA15PopeLauncherTests(unittest.TestCase):
+    def test_dry_run_uses_configured_paths_and_author_defaults(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "server.env"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "MODEL_PATH=/models/llava-v1.5-7b",
+                        "COCO_IMAGE_DIR=/datasets/coco/val2014",
+                        "POPE_DATA_DIR=/datasets/pope/coco",
+                        "POPE_CAPTION_FILE=/datasets/captions/pope.jsonl",
+                        "OUTPUT_DIR=/results/shield",
+                        "CUDA_VISIBLE_DEVICES=3",
+                        "SEED=42",
+                        "CD_ALPHA=2.0",
+                        "CD_BETA=0.35",
+                        "NOISE_STEP=999",
+                        "THE=0.011",
+                        "GAMMA_GAIN=3.0",
+                        "GAMMA_REDUCE=3.0",
+                        "GAIN_PER=0.5",
+                        "REDUCE_PER=0.0",
+                        "BIAS_WEIGHT=0.1",
+                        "BIAS_SAMPLE_NUM=32",
+                        "CW_EPSILON=0.14",
+                        "CW_NUM_STEPS=30",
+                        "CW_C=12",
+                        "CW_LR=0.14",
+                        "MAX_NEW_TOKENS=1024",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    "bash",
+                    str(LAUNCHER),
+                    "--config",
+                    str(config_path),
+                    "--split",
+                    "adversarial",
+                    "--dry-run",
+                ],
+                cwd=REPOSITORY_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("CUDA_VISIBLE_DEVICES=3", completed.stdout)
+        self.assertIn("--model-path /models/llava-v1.5-7b", completed.stdout)
+        self.assertIn("--question-file /datasets/pope/coco/coco_pope_adversarial.json", completed.stdout)
+        self.assertIn("--image-folder /datasets/coco/val2014", completed.stdout)
+        self.assertIn("--caption-file /datasets/captions/pope.jsonl", completed.stdout)
+        self.assertIn("--cd_alpha 2.0", completed.stdout)
+        self.assertIn("--bias_sample_num 32", completed.stdout)
+        self.assertIn("--max-new-tokens 1024", completed.stdout)
+        self.assertIn("/results/shield/llava15_coco_pope_adversarial", completed.stdout)
+
+
+class LLaVA15ChairLauncherTests(unittest.TestCase):
+    def test_dry_run_uses_chair_protocol_and_author_defaults(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "chair.env"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "MODEL_PATH=/models/llava-v1.5-7b",
+                        "COCO_IMAGE_DIR=/datasets/coco/val2014",
+                        "CHAIR_QUESTION_FILE=/datasets/chair/questions.jsonl",
+                        "CHAIR_CAPTION_FILE=/datasets/captions/chair.jsonl",
+                        "CHAIR_CACHE_FILE=/datasets/chair/chair.pkl",
+                        "OUTPUT_DIR=/results/shield",
+                        "CUDA_VISIBLE_DEVICES=3",
+                        "SEED=42",
+                        "CD_ALPHA=2.0",
+                        "CD_BETA=0.35",
+                        "NOISE_STEP=500",
+                        "THE=0.002",
+                        "GAMMA_GAIN=3.0",
+                        "GAMMA_REDUCE=3.0",
+                        "GAIN_PER=0.55",
+                        "REDUCE_PER=0.0",
+                        "BIAS_WEIGHT=0.01",
+                        "BIAS_SAMPLE_NUM=32",
+                        "CW_EPSILON=0.14",
+                        "CW_NUM_STEPS=30",
+                        "CW_C=12",
+                        "CW_LR=0.02",
+                        "MAX_NEW_TOKENS=128",
+                        'PROMPT="Describe this image."',
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    "bash",
+                    str(REPOSITORY_ROOT / "experiments/scripts/run_llava15_chair.sh"),
+                    "--config",
+                    str(config_path),
+                    "--dry-run",
+                ],
+                cwd=REPOSITORY_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("--question-file /datasets/chair/questions.jsonl", completed.stdout)
+        self.assertIn("--image-folder /datasets/coco/val2014", completed.stdout)
+        self.assertIn("--caption-file /datasets/captions/chair.jsonl", completed.stdout)
+        self.assertIn("--prompt Describe\\ this\\ image.", completed.stdout)
+        self.assertIn("--max-new-tokens 128", completed.stdout)
+        self.assertIn("--cw_lr 0.02", completed.stdout)
+        self.assertIn("--cache /datasets/chair/chair.pkl", completed.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()
