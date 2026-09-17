@@ -90,6 +90,9 @@ printf 'CUDA_VISIBLE_DEVICES=%s\n' "$CUDA_VISIBLE_DEVICES"
 if [[ -n "${HF_HOME:-}" ]]; then
     printf 'HF_HOME=%s\n' "$HF_HOME"
 fi
+if [[ -n "${HF_HUB_DISABLE_XET:-}" ]]; then
+    printf 'HF_HUB_DISABLE_XET=%s\n' "$HF_HUB_DISABLE_XET"
+fi
 printf '%q ' "${command[@]}"
 printf '\n'
 
@@ -99,5 +102,8 @@ fi
 
 if [[ -n "${HF_HOME:-}" ]]; then
     export HF_HOME
+fi
+if [[ -n "${HF_HUB_DISABLE_XET:-}" ]]; then
+    export HF_HUB_DISABLE_XET
 fi
 CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES" "${command[@]}"

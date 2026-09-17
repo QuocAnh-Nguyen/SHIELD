@@ -26,7 +26,8 @@ Both files are shell environment files. Quote any value containing spaces, for e
 Optional runtime variables:
 
 - `CUDA_VISIBLE_DEVICES`: GPU index to use (default `0`). On a single-GPU server leave it as `0`; on a multi-GPU server set it to a free GPU index, for example `CUDA_VISIBLE_DEVICES=3`.
-- `HF_HOME`: Hugging Face cache directory (default empty = `~/.cache/huggingface`). Set it to a large-disk location, for example `HF_HOME=/data/anhnq/hf_cache`, when the home partition has less than ~20 GB free. The launchers export it automatically when non-empty.
+- `HF_HOME`: Hugging Face cache directory. Set to `/home/nvidia-lab/data_mount/hf_cache` in all three configs (the previously used server cache location; verify with `df -h /home/nvidia-lab/data_mount` that it has at least ~20 GB free for the LLaVA model + CLIP download). The launchers export it automatically when non-empty.
+- `HF_HUB_DISABLE_XET`: set to `1` in all three configs to use the standard HTTP download path, matching the previously used server workflow.
 
 ## Base Model
 

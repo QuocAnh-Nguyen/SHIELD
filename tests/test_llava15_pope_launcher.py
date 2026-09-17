@@ -101,6 +101,7 @@ class LLaVA15ChairLauncherTests(unittest.TestCase):
                         "CW_LR=0.14",
                         "MAX_NEW_TOKENS=1024",
                         "HF_HOME=/data/hf_cache",
+                        "HF_HUB_DISABLE_XET=1",
                     ]
                 )
                 + "\n",
@@ -123,6 +124,7 @@ class LLaVA15ChairLauncherTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertIn("HF_HOME=/data/hf_cache", completed.stdout)
+        self.assertIn("HF_HUB_DISABLE_XET=1", completed.stdout)
 
     def test_dry_run_uses_chair_protocol_and_author_defaults(self):
         with tempfile.TemporaryDirectory() as directory:
