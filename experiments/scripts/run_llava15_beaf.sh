@@ -52,7 +52,6 @@ caption_command=(
     --question-file "$BEAF_QNA_FILE"
     --output-file "$BEAF_CAPTION_FILE"
     --max-new-tokens 70
-    --do-sample
     --seed "$SEED"
 )
 
