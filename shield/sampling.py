@@ -137,12 +137,12 @@ def sample(
 
             next_token_scores = cd_logits
             cd_probs = nn.functional.softmax(cd_logits, dim=-1)
-            next_tokens = torch.multinomial(cd_probs, num_samples=1).squeeze(1)
+            next_tokens = torch.multinomial(cd_probs, num_samples=1).squeeze(1).to(unfinished_sequences.device)
         else:
             next_token_scores = logits_processor(input_ids, next_token_logits)
             next_token_scores = logits_warper(input_ids, next_token_scores)
             probs = nn.functional.softmax(next_token_scores, dim=-1)
-            next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)
+            next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1).to(unfinished_sequences.device)
 
         if return_dict_in_generate:
             if output_scores:

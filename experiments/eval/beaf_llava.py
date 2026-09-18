@@ -73,7 +73,21 @@ def eval_model(args):
     os.makedirs(os.path.dirname(answers_file), exist_ok=True)
 
     results = []
-    for line in tqdm(questions):
+    if os.path.exists(answers_file):
+        try:
+            with open(answers_file, "r") as f:
+                results = json.load(f)
+        except json.JSONDecodeError:
+            print("Existing answers file is corrupt - starting fresh")
+            results = []
+        if results and not all(r["id"] == i for i, r in enumerate(results)):
+            print("Answers file ids are not sequential - starting fresh")
+            results = []
+        if results:
+            print(f"Resuming: {len(results)}/{len(questions)} answers already saved")
+
+    start_idx = len(results)
+    for line in tqdm(questions[start_idx:], initial=start_idx, total=len(questions)):
         idx = line["id"]
         image_file = line["image"]
         qs_text = line["question"]
@@ -129,8 +143,10 @@ def eval_model(args):
 
         results.append({"id": idx, "answer": outputs})
 
-    with open(answers_file, "w") as f:
-        json.dump(results, f, indent=2)
+        tmp_file = answers_file + ".tmp"
+        with open(tmp_file, "w") as f:
+            json.dump(results, f, indent=2)
+        os.replace(tmp_file, answers_file)
 
     print(f"Saved {len(results)} answers to {answers_file}")
 
