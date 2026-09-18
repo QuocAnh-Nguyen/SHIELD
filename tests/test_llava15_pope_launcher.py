@@ -196,7 +196,7 @@ class LLaVA15BeafLauncherTests(unittest.TestCase):
                         "MODEL_PATH=/models/llava-v1.5-7b",
                         "BEAF_IMAGE_DIR=/datasets/beaf",
                         "BEAF_QNA_FILE=/datasets/beaf/beaf_qna.json",
-                        "BEAF_CAPTION_FILE=/results/captions/beaf.jsonl",
+                        "BEAF_CAPTION_FILE=/datasets/captions/pope.jsonl",
                         "OUTPUT_DIR=/results/shield",
                         "CUDA_VISIBLE_DEVICES=0",
                         "SEED=42",
@@ -236,12 +236,9 @@ class LLaVA15BeafLauncherTests(unittest.TestCase):
             )
 
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIn("generate_first_captions_llava.py", completed.stdout)
         self.assertIn("--question-file /datasets/beaf/beaf_qna.json", completed.stdout)
-        self.assertIn("--output-file /results/captions/beaf.jsonl", completed.stdout)
-        self.assertNotIn("--orig-only", completed.stdout)
         self.assertIn("--image-folder /datasets/beaf", completed.stdout)
-        self.assertIn("--caption-file /results/captions/beaf.jsonl", completed.stdout)
+        self.assertIn("--caption-file /datasets/captions/pope.jsonl", completed.stdout)
         self.assertIn("--cd_alpha 2.0", completed.stdout)
         self.assertIn("--max-new-tokens 1024", completed.stdout)
         self.assertIn("beaf_metric.py", completed.stdout)
