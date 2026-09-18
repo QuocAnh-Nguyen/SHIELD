@@ -26,3 +26,6 @@ timm==0.6.13
 pattern @ git+https://github.com/clips/pattern.git
 nltk
 tqdm
+
+# Custom process title for shared-GPU servers (avoids generic 'python' kills)
+setproctitle
