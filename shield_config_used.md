@@ -141,9 +141,9 @@ Caption generation follows the SHIELD authors' measured settings: the shipped `f
 - Model answers must be a JSON array of `{"id": int, "answer": str}` in strict id order (0..26063); every question must be answered.
 - Every evaluated image (original and manipulated) gets its own first-round caption; the caption generator captions each unique image file exactly as referenced by the qna, so manipulated `_NN.png`/`_NN.jpg` names are captioned 1:1.
 
-## Causal-HalBench (replaces BEAF)
+## Causal-HalBench (dropped, kept for reference)
 
-**Priority: run after POPE-COCO** (per mentor: replaces the BEAF benchmark; the BEAF pipeline is kept for reference and can be removed later).
+**Status: dropped** (mentor reverted to BEAF as the priority benchmark; the BEAF pipeline above is active again). The Causal-HalBench pipelines below are kept for reference and can be removed later.
 
 Source: official `zhexu-ustc/Causal-HalBench` (AAAI'26, arXiv 2511.10268). Models: LLaVA-1.5-7B and Qwen2-VL-7B-Instruct.
 
