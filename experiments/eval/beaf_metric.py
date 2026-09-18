@@ -8,7 +8,14 @@ def load_json(path):
 
 
 def answer_check(beaf_qna, model_answers):
+    if len(beaf_qna) != len(model_answers):
+        raise ValueError(
+            f"answer file has {len(model_answers)} entries but the qna file has "
+            f"{len(beaf_qna)} - every question must be answered in id order"
+        )
+
     orig_pairs = {}
+    unparseable = []
     for (q, a) in zip(beaf_qna, model_answers):
         assert q['id'] == a['id']
         if 'yes' in a['answer'].lower():
@@ -16,6 +23,7 @@ def answer_check(beaf_qna, model_answers):
         elif 'no' in a['answer'].lower():
             answer = 'no'
         else:
+            unparseable.append((q['id'], a['answer']))
             answer = 'no'
 
         gt = q['gt']
@@ -35,6 +43,14 @@ def answer_check(beaf_qna, model_answers):
             orig_pairs[q['image']][q['question']] = q['answer']
 
         total_qna = beaf_qna.copy()
+
+    if unparseable:
+        raise ValueError(
+            f"{len(unparseable)} answers contain neither 'yes' nor 'no' "
+            f"(e.g. ids {[i for i, _ in unparseable[:10]]}) - "
+            "review and normalize them in the answers file before scoring"
+        )
+
     return orig_pairs, total_qna
 
 
