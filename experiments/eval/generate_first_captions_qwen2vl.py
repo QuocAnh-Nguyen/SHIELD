@@ -86,7 +86,7 @@ def eval_model(args, image_files, existing_entries):
         with torch.inference_mode():
             output_ids = model.generate(
                 **inputs,
-                do_sample=True,
+                do_sample=args.do_sample,
                 temperature=args.temperature,
                 top_p=args.top_p,
                 top_k=args.top_k,
@@ -121,6 +121,7 @@ if __name__ == "__main__":
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top_p", type=float, default=1)
     parser.add_argument("--top_k", type=int, default=None)
+    parser.add_argument("--do-sample", action="store_true", default=False)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
     set_seed(args.seed)

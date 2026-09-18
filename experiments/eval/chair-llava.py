@@ -75,7 +75,7 @@ def eval_model(args):
             output_ids = model.generate(
                 input_ids,
                 **shield_kw,
-                do_sample=True,
+                do_sample=args.do_sample,
                 temperature=args.temperature,
                 top_p=args.top_p,
                 top_k=args.top_k,
@@ -116,6 +116,7 @@ if __name__ == "__main__":
     parser.add_argument("--top_k", type=int, default=None)
     parser.add_argument("--prompt", type=str, default=None)
     parser.add_argument("--max-new-tokens", type=int, default=512)
+    parser.add_argument("--do-sample", action="store_true", default=False)
 
     parser.add_argument("--noise_step", type=int, default=500)
     parser.add_argument("--use_cd", action='store_true', default=False)

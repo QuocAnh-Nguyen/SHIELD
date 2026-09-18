@@ -153,7 +153,7 @@ The dataset ships on Google Drive (file id `1kMTzO4vXVi66Wngvhqrs1Z82vffPyVAt`) 
 
 ### Pipeline (per benchmark official protocol + SHIELD method)
 
-1. First-round captions: generated for ALL unique Causal-HalBench images (originals + inpainted) with the vanilla LVLM of the run (LLaVA-1.5 for the LLaVA pipeline, Qwen2-VL for the Qwen2-VL pipeline), same prompt and 70-token cap as the SHIELD authors' shipped `first_cap` files. Resumable.
+1. First-round captions: generated for ALL unique Causal-HalBench images (originals + inpainted) with the vanilla LVLM of the run (LLaVA-1.5 for the LLaVA pipeline, Qwen2-VL for the Qwen2-VL pipeline), using the mentor-specified captioning protocol: prompt `Describe this image.`, `max_new_tokens=128`, `do_sample=False` (greedy). Resumable.
 2. Inference (`causalhal_llava.py` / `causalhal_qwen2vl.py`): SHIELD generation protocol (sampling, T=1.0) and input preparation; output format `{image_name, type, answer, tag, id}` with answers normalized to exactly `yes`/`no` per the official benchmark scripts (the official metric compares by exact string match).
 3. Metric (`causalhal_metric.py`): the official Causal-HalBench metric (CAC, AAC, CHR, CPR) verbatim with the hardcoded `qa_file`/`resp_file` replaced by CLI arguments.
 

@@ -89,7 +89,7 @@ def eval_model(args, image_files, existing_entries):
             output_ids = model.generate(
                 input_ids,
                 images=image_tensor.unsqueeze(0).half().cuda(),
-                do_sample=True,
+                do_sample=args.do_sample,
                 temperature=args.temperature,
                 top_p=args.top_p,
                 top_k=args.top_k,
@@ -125,6 +125,7 @@ if __name__ == "__main__":
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top_p", type=float, default=1)
     parser.add_argument("--top_k", type=int, default=None)
+    parser.add_argument("--do-sample", action="store_true", default=False)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--orig-only", action="store_true", default=False)
     args = parser.parse_args()
