@@ -45,6 +45,15 @@ done
 
 answers_file="$OUTPUT_DIR/llava15_beaf_answers_seed${SEED}.json"
 
+caption_command=(
+    python experiments/eval/generate_first_captions_llava.py
+    --model-path "$MODEL_PATH"
+    --image-folder "$BEAF_IMAGE_DIR"
+    --question-file "$BEAF_QNA_FILE"
+    --output-file "$BEAF_CAPTION_FILE"
+    --seed "$SEED"
+)
+
 inference_command=(
     python experiments/eval/beaf_llava.py
     --model-path "$MODEL_PATH"
@@ -84,6 +93,8 @@ fi
 if [[ -n "${HF_HUB_DISABLE_XET:-}" ]]; then
     printf 'HF_HUB_DISABLE_XET=%s\n' "$HF_HUB_DISABLE_XET"
 fi
+printf '%q ' "${caption_command[@]}"
+printf '\n'
 printf '%q ' "${inference_command[@]}"
 printf '\n'
 printf '%q ' "${evaluation_command[@]}"
@@ -99,6 +110,8 @@ fi
 if [[ -n "${HF_HUB_DISABLE_XET:-}" ]]; then
     export HF_HUB_DISABLE_XET
 fi
+
+CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES" "${caption_command[@]}"
 
 CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES" "${inference_command[@]}"
 "${evaluation_command[@]}"

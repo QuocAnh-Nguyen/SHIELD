@@ -17,6 +17,7 @@ from PIL import Image
 from transformers import set_seed
 
 import shield
+from shield.caption import find_text_by_image, load_captions
 
 
 def eval_model(args):
@@ -45,6 +46,23 @@ def eval_model(args):
     with open(os.path.expanduser(args.question_file), "r") as f:
         questions = json.load(f)
 
+    missing_images = [
+        q["image"] for q in questions
+        if not os.path.exists(os.path.join(args.image_folder, q["image"]))
+    ]
+    if missing_images:
+        print(f"Missing {len(missing_images)} image files, e.g.: {missing_images[:10]}")
+        sys.exit(1)
+
+    captions = load_captions(args.caption_file)
+    missing_captions = [
+        q["image"] for q in questions
+        if find_text_by_image(q["image"], captions) is None
+    ]
+    if missing_captions:
+        print(f"Missing {len(missing_captions)} first-round captions, e.g.: {missing_captions[:10]}")
+        sys.exit(1)
+
     answers_file = os.path.expanduser(args.answers_file)
     os.makedirs(os.path.dirname(answers_file), exist_ok=True)
 
@@ -56,8 +74,7 @@ def eval_model(args):
 
         image_path = os.path.join(args.image_folder, image_file)
         if not os.path.exists(image_path):
-            results.append({"id": idx, "answer": ""})
-            continue
+            raise FileNotFoundError(f"Missing image file for question {idx}: {image_path}")
 
         if model.config.mm_use_im_start_end:
             qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs_text
@@ -74,7 +91,7 @@ def eval_model(args):
         image = Image.open(image_path)
         image_tensor = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
 
-        caption_image_key = image_file if line["orig_img"] else image_file[:-7] + '.jpg'
+        caption_image_key = image_file
 
         shield_kw = model.shield_prepare(image, image_tensor, caption_image_key, use_cd=args.use_cd)
 
