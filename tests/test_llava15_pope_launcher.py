@@ -249,5 +249,131 @@ class LLaVA15BeafLauncherTests(unittest.TestCase):
         self.assertIn("--model-answers /results/shield/llava15_beaf_answers_seed42.json", completed.stdout)
 
 
+class LLaVA15CausalHalLauncherTests(unittest.TestCase):
+    def test_dry_run_prints_caption_inference_and_metric_commands(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "causalhal.env"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "MODEL_PATH=/models/llava-v1.5-7b",
+                        "CAUSALHAL_IMAGE_DIR=/datasets/causalhal/images",
+                        "CAUSALHAL_QA_FILE=/datasets/causalhal/qa.json",
+                        "CAUSALHAL_CAPTION_FILE=/results/captions/causalhal.jsonl",
+                        "OUTPUT_DIR=/results/shield",
+                        "CUDA_VISIBLE_DEVICES=0",
+                        "SEED=42",
+                        "CD_ALPHA=2.0",
+                        "CD_BETA=0.35",
+                        "NOISE_STEP=999",
+                        "THE=0.011",
+                        "GAMMA_GAIN=3.0",
+                        "GAMMA_REDUCE=3.0",
+                        "GAIN_PER=0.5",
+                        "REDUCE_PER=0.0",
+                        "BIAS_WEIGHT=0.1",
+                        "BIAS_SAMPLE_NUM=32",
+                        "CW_EPSILON=0.14",
+                        "CW_NUM_STEPS=30",
+                        "CW_C=12",
+                        "CW_LR=0.14",
+                        "MAX_NEW_TOKENS=1024",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    "bash",
+                    str(REPOSITORY_ROOT / "experiments/scripts/run_llava15_causalhal.sh"),
+                    "--config",
+                    str(config_path),
+                    "--dry-run",
+                ],
+                cwd=REPOSITORY_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("generate_first_captions_llava.py", completed.stdout)
+        self.assertIn("--question-file /datasets/causalhal/qa.json", completed.stdout)
+        self.assertIn("--output-file /results/captions/causalhal.jsonl", completed.stdout)
+        self.assertIn("--max-new-tokens 70", completed.stdout)
+        self.assertIn("--image-folder /datasets/causalhal/images", completed.stdout)
+        self.assertIn("--caption-file /results/captions/causalhal.jsonl", completed.stdout)
+        self.assertIn("--cd_alpha 2.0", completed.stdout)
+        self.assertIn("--max-new-tokens 1024", completed.stdout)
+        self.assertIn("causalhal_metric.py", completed.stdout)
+        self.assertIn("--qa-file /datasets/causalhal/qa.json", completed.stdout)
+        self.assertIn("--resp-file /results/shield/llava15_causalhal_answers_seed42.json", completed.stdout)
+
+
+class Qwen2VLCausalHalLauncherTests(unittest.TestCase):
+    def test_dry_run_prints_caption_inference_and_metric_commands(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "qwen2vl_causalhal.env"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "MODEL_PATH=Qwen/Qwen2-VL-7B-Instruct",
+                        "CAUSALHAL_IMAGE_DIR=/datasets/causalhal/images",
+                        "CAUSALHAL_QA_FILE=/datasets/causalhal/qa.json",
+                        "CAUSALHAL_CAPTION_FILE=/results/captions/qwen2vl_causalhal.jsonl",
+                        "OUTPUT_DIR=/results/shield",
+                        "CUDA_VISIBLE_DEVICES=0",
+                        "SEED=42",
+                        "CD_ALPHA=2.0",
+                        "CD_BETA=0.35",
+                        "NOISE_STEP=999",
+                        "THE=0.011",
+                        "GAMMA_GAIN=3.0",
+                        "GAMMA_REDUCE=3.0",
+                        "GAIN_PER=0.5",
+                        "REDUCE_PER=0.0",
+                        "BIAS_WEIGHT=0.1",
+                        "BIAS_SAMPLE_NUM=32",
+                        "CW_EPSILON=0.14",
+                        "CW_NUM_STEPS=30",
+                        "CW_C=12",
+                        "CW_LR=0.14",
+                        "MAX_NEW_TOKENS=1024",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    "bash",
+                    str(REPOSITORY_ROOT / "experiments/scripts/run_qwen2vl_causalhal.sh"),
+                    "--config",
+                    str(config_path),
+                    "--dry-run",
+                ],
+                cwd=REPOSITORY_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("generate_first_captions_qwen2vl.py", completed.stdout)
+        self.assertIn("--question-file /datasets/causalhal/qa.json", completed.stdout)
+        self.assertIn("--output-file /results/captions/qwen2vl_causalhal.jsonl", completed.stdout)
+        self.assertIn("--max-new-tokens 70", completed.stdout)
+        self.assertIn("--image-folder /datasets/causalhal/images", completed.stdout)
+        self.assertIn("--caption-file /results/captions/qwen2vl_causalhal.jsonl", completed.stdout)
+        self.assertIn("--cd_alpha 2.0", completed.stdout)
+        self.assertIn("--max-new-tokens 1024", completed.stdout)
+        self.assertIn("causalhal_metric.py", completed.stdout)
+        self.assertIn("--qa-file /datasets/causalhal/qa.json", completed.stdout)
+        self.assertIn("--resp-file /results/shield/qwen2vl_causalhal_answers_seed42.json", completed.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

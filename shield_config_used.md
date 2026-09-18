@@ -141,6 +141,39 @@ Caption generation follows the SHIELD authors' measured settings: the shipped `f
 - Model answers must be a JSON array of `{"id": int, "answer": str}` in strict id order (0..26063); every question must be answered.
 - Every evaluated image (original and manipulated) gets its own first-round caption; the caption generator captions each unique image file exactly as referenced by the qna, so manipulated `_NN.png`/`_NN.jpg` names are captioned 1:1.
 
+## Causal-HalBench (replaces BEAF)
+
+**Priority: run after POPE-COCO** (per mentor: replaces the BEAF benchmark; the BEAF pipeline is kept for reference and can be removed later).
+
+Source: official `zhexu-ustc/Causal-HalBench` (AAAI'26, arXiv 2511.10268). Models: LLaVA-1.5-7B and Qwen2-VL-7B-Instruct.
+
+### Data Download
+
+The dataset ships on Google Drive (file id `1kMTzO4vXVi66Wngvhqrs1Z82vffPyVAt`) and is NOT in the benchmark repo: download it on the server and point the config paths below at the extracted `qa.json` and `images/`. The official inference scripts import a `result_eval.py` that the repo does not ship, so they can only be referenced, not run.
+
+### Pipeline (per benchmark official protocol + SHIELD method)
+
+1. First-round captions: generated for ALL unique Causal-HalBench images (originals + inpainted) with the vanilla LVLM of the run (LLaVA-1.5 for the LLaVA pipeline, Qwen2-VL for the Qwen2-VL pipeline), same prompt and 70-token cap as the SHIELD authors' shipped `first_cap` files. Resumable.
+2. Inference (`causalhal_llava.py` / `causalhal_qwen2vl.py`): SHIELD generation protocol (sampling, T=1.0) and input preparation; output format `{image_name, type, answer, tag, id}` with answers normalized to exactly `yes`/`no` per the official benchmark scripts (the official metric compares by exact string match).
+3. Metric (`causalhal_metric.py`): the official Causal-HalBench metric (CAC, AAC, CHR, CPR) verbatim with the hardcoded `qa_file`/`resp_file` replaced by CLI arguments.
+
+### Qwen2-VL SHIELD adaptation
+
+`shield/qwen2vl.py` is a new module (the LLaVA wrapper is untouched) adapting the three SHIELD mechanisms to `Qwen2VLForConditionalGeneration`: token re-weighting and noise-derived subtraction on the weighted visual embeds, caption tokens inserted after each `<|vision_end|>` with M-RoPE positions recomputed for the modified sequence, and the CLIP attack bridged into the Qwen2-VL pixel space (perturbation optimized in CLIP space, un-normalized, resized, applied to the image, re-processed by the Qwen processor). The contrastive-decoding sampler is reused unchanged.
+
+**Environment requirement:** transformers 4.31 (the SHIELD env) has no Qwen2-VL support. Qwen2-VL runs need a second environment with `transformers==4.47.1` (matches the Causal-HalBench requirement), plus `qwen-vl-utils` and `accelerate`. All Qwen2-VL imports are lazy so the 4.31 env keeps working for LLaVA.
+
+### Run
+
+Preview or run (fill the config paths after the dataset download):
+
+```bash
+bash experiments/scripts/run_llava15_causalhal.sh --config experiments/configs/llava15_causalhal.env --dry-run
+bash experiments/scripts/run_qwen2vl_causalhal.sh --config experiments/configs/qwen2vl_causalhal.env --dry-run
+```
+
+Hyper-parameters follow the SHIELD repository's configuration (the same values as the LLaVA-1.5 launchers, the only values the authors shipped); they are env-configurable. Both pipelines set the `phuongnh_vlm_truth` process title for the shared GPU.
+
 ## Runtime Prerequisites
 
 Use a dedicated server environment for SHIELD. The repository specifies Python 3.10, PyTorch 2.0.1, TorchVision 0.15.2, and Transformers 4.31.0 in `README.md` and `requirements.txt`.
