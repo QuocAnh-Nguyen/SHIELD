@@ -37,11 +37,11 @@ Optional runtime variables:
 
 ## Author SHIELD Defaults
 
-| Benchmark | cd_alpha | cd_beta | noise_step | the | gamma_gain | gamma_reduce | gain_per | reduce_per | bias_weight | bias_sample_num | cw_epsilon | cw_num_steps | cw_c | cw_lr | seed |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| POPE-COCO | 2.0 | 0.35 | 999 | 0.011 | 3.0 | 3.0 | 0.5 | 0.0 | 0.1 | 32 | 0.14 | 30 | 12 | 0.14 | 42 |
-| CHAIR | 2.0 | 0.35 | 500 | 0.002 | 3.0 | 3.0 | 0.55 | 0.0 | 0.01 | 32 | 0.14 | 30 | 12 | 0.02 | 42 |
-| BEAF | 2.0 | 0.35 | 999 | 0.011 | 3.0 | 3.0 | 0.5 | 0.0 | 0.1 | 32 | 0.14 | 30 | 12 | 0.14 | 42 |
+| Benchmark | cd_alpha | cd_beta | noise_step |   the | gamma_gain | gamma_reduce | gain_per | reduce_per | bias_weight | bias_sample_num | cw_epsilon | cw_num_steps | cw_c | cw_lr | seed |
+| --------- | -------: | ------: | ---------: | ----: | ---------: | -----------: | -------: | ---------: | ----------: | --------------: | ---------: | -----------: | ---: | ----: | ---: |
+| POPE-COCO |      2.0 |    0.35 |        999 | 0.011 |        3.0 |          3.0 |      0.5 |        0.0 |         0.1 |              32 |       0.14 |           30 |   12 |  0.14 |   42 |
+| CHAIR     |      2.0 |    0.35 |        500 | 0.002 |        3.0 |          3.0 |     0.55 |        0.0 |        0.01 |              32 |       0.14 |           30 |   12 |  0.02 |   42 |
+| BEAF      |      2.0 |    0.35 |        999 | 0.011 |        3.0 |          3.0 |      0.5 |        0.0 |         0.1 |              32 |       0.14 |           30 |   12 |  0.14 |   42 |
 
 These values match the default expansions in `experiments/scripts/llava1.5_pope_coco.bash` and `experiments/scripts/llava1.5_chair.bash`.
 
@@ -130,7 +130,7 @@ bash experiments/scripts/run_llava15_beaf.sh --config experiments/configs/llava1
 bash experiments/scripts/run_llava15_beaf.sh --config experiments/configs/llava15_beaf.env
 ```
 
-The launcher first generates missing first-round captions for the unique BEAF images not yet captioned (resumable; roughly 1-2 hours for all 2,222 images), then runs inference, then `beaf_metric.py` and reports: Accuracy, Precision, Recall, F1, TU, IG, SB+, SB-, ID, F1(TU,ID). Expected inference duration is roughly 30-40 hours on one GPU (26,064 questions; the SHIELD pipeline recomputes the CLIP attack per question).
+The launcher first generates missing first-round captions for the unique BEAF images not yet captioned (resumable; roughly 1-2 hours for all 2,223 images), then runs inference, then `beaf_metric.py` and reports: Accuracy, Precision, Recall, F1, TU, IG, SB+, SB-, ID, F1(TU,ID). Expected inference duration is roughly 30-40 hours on one GPU (26,064 questions; the SHIELD pipeline recomputes the CLIP attack per question).
 
 ### BEAF Eval Notes
 
