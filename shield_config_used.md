@@ -132,6 +132,8 @@ bash experiments/scripts/run_llava15_beaf.sh --config experiments/configs/llava1
 
 The launcher first generates missing first-round captions for the unique BEAF images not yet captioned (resumable; roughly 1-2 hours for all 2,223 images), then runs inference, then `beaf_metric.py` and reports: Accuracy, Precision, Recall, F1, TU, IG, SB+, SB-, ID, F1(TU,ID). Expected inference duration is roughly 30-40 hours on one GPU (26,064 questions; the SHIELD pipeline recomputes the CLIP attack per question).
 
+Caption generation follows the SHIELD authors' measured settings: the shipped `first_cap` files (500 POPE captions) were produced by `llava-v1.5-7b` with the recorded detailed-description prompt and `max_new_tokens=70` (verified: 452/500 shipped captions measure exactly 70 tokens with the Vicuna tokenizer), so the BEAF captions are generated with the same prompt, model, and 70-token cap.
+
 ### BEAF Eval Notes
 
 - Before inference, `beaf_llava.py` pre-flights the dataset: it fails fast (before any GPU work) if any image file or any first-round caption is missing - no silently skipped questions.
