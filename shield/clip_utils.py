@@ -26,8 +26,9 @@ def load_clip_model(
     if _clip_cache["model"] is None:
         from transformers import CLIPModel, CLIPProcessor
 
+        torch.cuda.empty_cache()
         _clip_cache["model"] = CLIPModel.from_pretrained(
-            model_name, cache_dir=cache_dir
+            model_name, cache_dir=cache_dir, torch_dtype=torch.float16
         ).to(device)
         _clip_cache["processor"] = CLIPProcessor.from_pretrained(
             model_name, cache_dir=cache_dir
