@@ -26,14 +26,9 @@ import shield
 from shield.caption import find_text_by_image, load_captions
 
 
-def answer_one_question(args, model, tokenizer, image_processor, line):
+def answer_one_question(args, model, tokenizer, line, image, image_tensor, shield_kw):
     idx = line["id"]
-    image_file = line["image"]
     qs_text = line["question"]
-
-    image_path = os.path.join(args.image_folder, image_file)
-    if not os.path.exists(image_path):
-        raise FileNotFoundError(f"Missing image file for question {idx}: {image_path}")
 
     if model.config.mm_use_im_start_end:
         qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs_text
@@ -46,11 +41,6 @@ def answer_one_question(args, model, tokenizer, image_processor, line):
     prompt = conv.get_prompt()
 
     input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
-
-    image = Image.open(image_path)
-    image_tensor = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
-
-    shield_kw = model.shield_prepare(image, image_tensor, image_file, use_cd=args.use_cd)
 
     stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
     keywords = [stop_str]
@@ -142,6 +132,8 @@ def eval_model(args):
     print(f"Resuming: {len(answer_map)} answers saved, {len(pending)} pending (failed/empty answers are retried)")
 
     failed_questions = []
+    cached_image = None
+    image, image_tensor, shield_kw = None, None, None
     for line in tqdm(pending, initial=len(answer_map), total=len(questions)):
         idx = line["id"]
         image_file = line["image"]
@@ -149,7 +141,15 @@ def eval_model(args):
         answer_text = None
         for attempt in range(3):
             try:
-                answer_text = answer_one_question(args, model, tokenizer, image_processor, line)
+                if image_file != cached_image:
+                    image_path = os.path.join(args.image_folder, image_file)
+                    if not os.path.exists(image_path):
+                        raise FileNotFoundError(f"Missing image file for question {idx}: {image_path}")
+                    image = Image.open(image_path)
+                    image_tensor = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+                    shield_kw = model.shield_prepare(image, image_tensor, image_file, use_cd=args.use_cd)
+                    cached_image = image_file
+                answer_text = answer_one_question(args, model, tokenizer, line, image, image_tensor, shield_kw)
                 break
             except Exception as e:
                 torch.cuda.empty_cache()
