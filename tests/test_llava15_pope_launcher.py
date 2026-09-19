@@ -434,7 +434,7 @@ class Qwen2VLBeafLauncherTests(unittest.TestCase):
         self.assertIn("--question-file /datasets/beaf/beaf_qna.json", completed.stdout)
         self.assertIn("--output-file /results/captions/qwen2vl_beaf.jsonl", completed.stdout)
         self.assertIn("--prompt Describe\\ this\\ image.", completed.stdout)
-        self.assertIn("--max-new-tokens 128", completed.stdout)
+        self.assertIn("--max-new-tokens 70", completed.stdout)
         self.assertIn("--image-folder /datasets/beaf", completed.stdout)
         self.assertIn("--caption-file /results/captions/qwen2vl_beaf.jsonl", completed.stdout)
         self.assertIn("--cd_alpha 2.0", completed.stdout)
