@@ -451,6 +451,8 @@ def wrap_qwen2vl(model, tokenizer, caption_file=None, qwen_processor=None, **kwa
         _qwen2vl_patched_prepare_inputs_for_generation_cd, model
     )
     model.shield_prepare = types.MethodType(_qwen2vl_shield_prepare, model)
+    model.sample = types.MethodType(sampling.sample, model)
+    model.greedy_search = types.MethodType(sampling.greedy_search, model)
 
     sampling.enable_shield_sampling()
 

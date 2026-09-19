@@ -27,7 +27,7 @@ from .feature import (
     get_bias,
     map_text_segments,
 )
-from .sampling import enable_shield_sampling
+from .sampling import enable_shield_sampling, sample, greedy_search
 
 # LLaVA constants -- try importing from the installed package first,
 # fall back to well-known defaults so shield works without a LLaVA checkout.
@@ -218,6 +218,8 @@ def _patch_model(model):
     model.prepare_inputs_for_generation_cd = types.MethodType(
         _prepare_inputs_for_generation_cd, model
     )
+    model.sample = types.MethodType(sample, model)
+    model.greedy_search = types.MethodType(greedy_search, model)
 
 
 # ---------------------------------------------------------------------------
