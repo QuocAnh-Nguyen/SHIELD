@@ -127,22 +127,22 @@ def eval_model(args):
     os.makedirs(os.path.dirname(answers_file), exist_ok=True)
 
     results = []
+    answer_map = {}
     if os.path.exists(answers_file):
         try:
             with open(answers_file, "r") as f:
-                results = json.load(f)
+                for entry in json.load(f):
+                    if entry.get("answer", "") != "":
+                        answer_map[entry["id"]] = entry["answer"]
         except json.JSONDecodeError:
             print("Existing answers file is corrupt - starting fresh")
-            results = []
-        if results and not all(r["id"] == i for i, r in enumerate(results)):
-            print("Answers file ids are not sequential - starting fresh")
-            results = []
-        if results:
-            print(f"Resuming: {len(results)}/{len(questions)} answers already saved")
+            answer_map = {}
 
-    start_idx = len(results)
+    pending = [q for q in questions if q["id"] not in answer_map]
+    print(f"Resuming: {len(answer_map)} answers saved, {len(pending)} pending (failed/empty answers are retried)")
+
     failed_questions = []
-    for line in tqdm(questions[start_idx:], initial=start_idx, total=len(questions)):
+    for line in tqdm(pending, initial=len(answer_map), total=len(questions)):
         idx = line["id"]
         image_file = line["image"]
 
@@ -158,13 +158,13 @@ def eval_model(args):
         if answer_text is None:
             failed_questions.append(idx)
             print(f"[ERROR] question {idx} failed after 3 attempts - recorded as empty answer, process keeps running")
-            results.append({"id": idx, "answer": ""})
+            answer_map[idx] = ""
         else:
-            results.append({"id": idx, "answer": answer_text})
+            answer_map[idx] = answer_text
 
         tmp_file = answers_file + ".tmp"
         with open(tmp_file, "w") as f:
-            json.dump(results, f, indent=2)
+            json.dump([{"id": i, "answer": a} for i, a in sorted(answer_map.items())], f, indent=2)
         os.replace(tmp_file, answers_file)
 
     print(f"Saved {len(results)} answers to {answers_file}")
