@@ -29,3 +29,6 @@ tqdm
 
 # Custom process title for shared-GPU servers (avoids generic 'python' kills)
 setproctitle
+
+# Qwen2-VL support (needs transformers >= 4.37 - install 4.47.1 in the qwen env)
+qwen-vl-utils

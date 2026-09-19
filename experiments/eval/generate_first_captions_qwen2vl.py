@@ -25,7 +25,7 @@ CAPTION_PROMPT = (
 def unique_images_in_order(questions):
     seen, images = set(), []
     for q in questions:
-        image_file = q["image_name"]
+        image_file = q.get("image_name") or q["image"]
         if image_file not in seen:
             seen.add(image_file)
             images.append(image_file)

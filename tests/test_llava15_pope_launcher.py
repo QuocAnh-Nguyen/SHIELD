@@ -380,5 +380,68 @@ class Qwen2VLCausalHalLauncherTests(unittest.TestCase):
         self.assertIn("--resp-file /results/shield/qwen2vl_causalhal_answers_seed42.json", completed.stdout)
 
 
+class Qwen2VLBeafLauncherTests(unittest.TestCase):
+    def test_dry_run_prints_caption_inference_and_metric_commands(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "qwen2vl_beaf.env"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "MODEL_PATH=Qwen/Qwen2-VL-7B-Instruct",
+                        "BEAF_IMAGE_DIR=/datasets/beaf",
+                        "BEAF_QNA_FILE=/datasets/beaf/beaf_qna.json",
+                        "BEAF_CAPTION_FILE=/results/captions/qwen2vl_beaf.jsonl",
+                        "OUTPUT_DIR=/results/shield",
+                        "CUDA_VISIBLE_DEVICES=0",
+                        "SEED=42",
+                        "CD_ALPHA=2.0",
+                        "CD_BETA=0.35",
+                        "NOISE_STEP=999",
+                        "THE=0.011",
+                        "GAMMA_GAIN=3.0",
+                        "GAMMA_REDUCE=3.0",
+                        "GAIN_PER=0.5",
+                        "REDUCE_PER=0.0",
+                        "BIAS_WEIGHT=0.1",
+                        "BIAS_SAMPLE_NUM=32",
+                        "CW_EPSILON=0.14",
+                        "CW_NUM_STEPS=30",
+                        "CW_C=12",
+                        "CW_LR=0.14",
+                        "MAX_NEW_TOKENS=1024",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    "bash",
+                    str(REPOSITORY_ROOT / "experiments/scripts/run_qwen2vl_beaf.sh"),
+                    "--config",
+                    str(config_path),
+                    "--dry-run",
+                ],
+                cwd=REPOSITORY_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("generate_first_captions_qwen2vl.py", completed.stdout)
+        self.assertIn("--question-file /datasets/beaf/beaf_qna.json", completed.stdout)
+        self.assertIn("--output-file /results/captions/qwen2vl_beaf.jsonl", completed.stdout)
+        self.assertIn("--prompt Describe\\ this\\ image.", completed.stdout)
+        self.assertIn("--max-new-tokens 128", completed.stdout)
+        self.assertIn("--image-folder /datasets/beaf", completed.stdout)
+        self.assertIn("--caption-file /results/captions/qwen2vl_beaf.jsonl", completed.stdout)
+        self.assertIn("--cd_alpha 2.0", completed.stdout)
+        self.assertIn("--max-new-tokens 1024", completed.stdout)
+        self.assertIn("beaf_metric.py", completed.stdout)
+        self.assertIn("--model-answers /results/shield/qwen2vl_beaf_answers_seed42.json", completed.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
