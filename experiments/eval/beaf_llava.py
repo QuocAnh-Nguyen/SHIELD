@@ -26,6 +26,60 @@ import shield
 from shield.caption import find_text_by_image, load_captions
 
 
+def answer_one_question(args, model, tokenizer, image_processor, line):
+    idx = line["id"]
+    image_file = line["image"]
+    qs_text = line["question"]
+
+    image_path = os.path.join(args.image_folder, image_file)
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Missing image file for question {idx}: {image_path}")
+
+    if model.config.mm_use_im_start_end:
+        qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs_text
+    else:
+        qs = DEFAULT_IMAGE_TOKEN + '\n' + qs_text
+
+    conv = conv_templates[args.conv_mode].copy()
+    conv.append_message(conv.roles[0], qs + " Please answer this question with one word.")
+    conv.append_message(conv.roles[1], None)
+    prompt = conv.get_prompt()
+
+    input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
+
+    image = Image.open(image_path)
+    image_tensor = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+
+    shield_kw = model.shield_prepare(image, image_tensor, image_file, use_cd=args.use_cd)
+
+    stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
+    keywords = [stop_str]
+    stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, input_ids)
+
+    with torch.inference_mode():
+        output_ids = model.generate(
+            input_ids,
+            **shield_kw,
+            do_sample=True,
+            temperature=args.temperature,
+            top_p=args.top_p,
+            top_k=args.top_k,
+            max_new_tokens=args.max_new_tokens,
+            use_cache=True,
+        )
+
+    input_token_len = input_ids.shape[1]
+    n_diff_input_output = (input_ids != output_ids[:, :input_token_len]).sum().item()
+    if n_diff_input_output > 0:
+        print(f'[Warning] {n_diff_input_output} output_ids are not the same as the input_ids')
+    outputs = tokenizer.batch_decode(output_ids[:, input_token_len:], skip_special_tokens=True)[0]
+    outputs = outputs.strip()
+    if outputs.endswith(stop_str):
+        outputs = outputs[:-len(stop_str)]
+    outputs = outputs.strip()
+    return outputs
+
+
 def eval_model(args):
     disable_torch_init()
     model_path = os.path.expanduser(args.model_path)
@@ -87,61 +141,26 @@ def eval_model(args):
             print(f"Resuming: {len(results)}/{len(questions)} answers already saved")
 
     start_idx = len(results)
+    failed_questions = []
     for line in tqdm(questions[start_idx:], initial=start_idx, total=len(questions)):
         idx = line["id"]
         image_file = line["image"]
-        qs_text = line["question"]
 
-        image_path = os.path.join(args.image_folder, image_file)
-        if not os.path.exists(image_path):
-            raise FileNotFoundError(f"Missing image file for question {idx}: {image_path}")
+        answer_text = None
+        for attempt in range(3):
+            try:
+                answer_text = answer_one_question(args, model, tokenizer, image_processor, line)
+                break
+            except Exception as e:
+                torch.cuda.empty_cache()
+                print(f"[ERROR] question {idx} ({image_file}) attempt {attempt + 1}/3: {type(e).__name__}: {e}")
 
-        if model.config.mm_use_im_start_end:
-            qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs_text
+        if answer_text is None:
+            failed_questions.append(idx)
+            print(f"[ERROR] question {idx} failed after 3 attempts - recorded as empty answer, process keeps running")
+            results.append({"id": idx, "answer": ""})
         else:
-            qs = DEFAULT_IMAGE_TOKEN + '\n' + qs_text
-
-        conv = conv_templates[args.conv_mode].copy()
-        conv.append_message(conv.roles[0], qs + " Please answer this question with one word.")
-        conv.append_message(conv.roles[1], None)
-        prompt = conv.get_prompt()
-
-        input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
-
-        image = Image.open(image_path)
-        image_tensor = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
-
-        caption_image_key = image_file
-
-        shield_kw = model.shield_prepare(image, image_tensor, caption_image_key, use_cd=args.use_cd)
-
-        stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
-        keywords = [stop_str]
-        stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, input_ids)
-
-        with torch.inference_mode():
-            output_ids = model.generate(
-                input_ids,
-                **shield_kw,
-                do_sample=True,
-                temperature=args.temperature,
-                top_p=args.top_p,
-                top_k=args.top_k,
-                max_new_tokens=args.max_new_tokens,
-                use_cache=True,
-            )
-
-        input_token_len = input_ids.shape[1]
-        n_diff_input_output = (input_ids != output_ids[:, :input_token_len]).sum().item()
-        if n_diff_input_output > 0:
-            print(f'[Warning] {n_diff_input_output} output_ids are not the same as the input_ids')
-        outputs = tokenizer.batch_decode(output_ids[:, input_token_len:], skip_special_tokens=True)[0]
-        outputs = outputs.strip()
-        if outputs.endswith(stop_str):
-            outputs = outputs[:-len(stop_str)]
-        outputs = outputs.strip()
-
-        results.append({"id": idx, "answer": outputs})
+            results.append({"id": idx, "answer": answer_text})
 
         tmp_file = answers_file + ".tmp"
         with open(tmp_file, "w") as f:
@@ -149,6 +168,9 @@ def eval_model(args):
         os.replace(tmp_file, answers_file)
 
     print(f"Saved {len(results)} answers to {answers_file}")
+    if failed_questions:
+        print(f"WARNING: {len(failed_questions)} questions failed and were recorded as empty answers: {failed_questions[:20]}")
+        print("Retry them by removing their entries from the answers file and re-running (resume re-attempts them).")
 
 
 if __name__ == "__main__":
