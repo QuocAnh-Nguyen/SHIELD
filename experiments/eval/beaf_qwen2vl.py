@@ -74,84 +74,118 @@ def eval_model(args):
     answers_file = os.path.expanduser(args.answers_file)
     os.makedirs(os.path.dirname(answers_file), exist_ok=True)
 
-    results = []
+    answer_map = {}
     if os.path.exists(answers_file):
         try:
             with open(answers_file, "r") as f:
-                results = json.load(f)
+                for entry in json.load(f):
+                    if entry.get("answer", "") != "":
+                        answer_map[entry["id"]] = entry["answer"]
         except json.JSONDecodeError:
             print("Existing answers file is corrupt - starting fresh")
-            results = []
-        if results and not all(r["id"] == i for i, r in enumerate(results)):
-            print("Answers file ids are not sequential - starting fresh")
-            results = []
-        if results:
-            print(f"Resuming: {len(results)}/{len(questions)} answers already saved")
+            answer_map = {}
 
-    start_idx = len(results)
-    for line in tqdm(questions[start_idx:], initial=start_idx, total=len(questions)):
+    pending = [q for q in questions if q["id"] not in answer_map]
+    print(f"Resuming: {len(answer_map)} answers saved, {len(pending)} pending (failed/empty answers are retried)")
+
+    failed_questions = []
+    cached_image = None
+    image_path_cached, image, pixel_values, image_grid_thw, shield_kw = None, None, None, None, None
+    for line in tqdm(pending, initial=len(answer_map), total=len(questions)):
         idx = line["id"]
         image_file = line["image"]
         qs_text = line["question"]
 
         image_path = os.path.join(args.image_folder, image_file)
-        if not os.path.exists(image_path):
-            raise FileNotFoundError(f"Missing image file for question {idx}: {image_path}")
 
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image", "image": image_path},
-                    {"type": "text", "text": qs_text + " Please answer this question with one word."},
-                ],
-            }
-        ]
+        answer_text = None
+        for attempt in range(3):
+            try:
+                if image_file != cached_image:
+                    if not os.path.exists(image_path):
+                        raise FileNotFoundError(f"Missing image file for question {idx}: {image_path}")
+                    messages = [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "image", "image": image_path},
+                                {"type": "text", "text": qs_text + " Please answer with yes or no."},
+                            ],
+                        }
+                    ]
+                    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                    image_inputs, video_inputs = process_vision_info(messages)
+                    inputs = processor(
+                        text=[text],
+                        images=image_inputs,
+                        videos=video_inputs,
+                        padding=True,
+                        return_tensors="pt",
+                    ).to("cuda")
+                    image = image_inputs[0]
+                    image_grid_thw = inputs.image_grid_thw
+                    pixel_values = inputs.pixel_values[0]
+                    shield_kw = model.shield_prepare(image, pixel_values, image_file, image_grid_thw, use_cd=args.use_cd)
+                    cached_image = image_file
 
-        text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        image_inputs, video_inputs = process_vision_info(messages)
-        inputs = processor(
-            text=[text],
-            images=image_inputs,
-            videos=video_inputs,
-            padding=True,
-            return_tensors="pt",
-        )
-        inputs = inputs.to("cuda")
+                messages_q = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image", "image": image_path},
+                            {"type": "text", "text": qs_text + " Please answer with yes or no."},
+                        ],
+                    }
+                ]
+                text_q = processor.apply_chat_template(messages_q, tokenize=False, add_generation_prompt=True)
+                image_inputs_q, video_inputs_q = process_vision_info(messages_q)
+                inputs_q = processor(
+                    text=[text_q],
+                    images=image_inputs_q,
+                    videos=video_inputs_q,
+                    padding=True,
+                    return_tensors="pt",
+                ).to("cuda")
 
-        image = image_inputs[0]
-        image_grid_thw = inputs.image_grid_thw
+                with torch.inference_mode():
+                    output_ids = model.generate(
+                        inputs_q.input_ids,
+                        **shield_kw,
+                        do_sample=True,
+                        temperature=args.temperature,
+                        top_p=args.top_p,
+                        top_k=args.top_k,
+                        max_new_tokens=args.max_new_tokens,
+                        use_cache=True,
+                    )
 
-        shield_kw = model.shield_prepare(image, inputs.pixel_values[0], image_file, image_grid_thw, use_cd=args.use_cd)
+                generated_ids_trimmed = [
+                    out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs_q.input_ids, output_ids)
+                ]
+                answer_text = processor.batch_decode(
+                    generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+                )[0].strip()
+                break
+            except Exception as e:
+                torch.cuda.empty_cache()
+                print(f"[ERROR] question {idx} ({image_file}) attempt {attempt + 1}/3: {type(e).__name__}: {e}")
 
-        with torch.inference_mode():
-            output_ids = model.generate(
-                inputs.input_ids,
-                **shield_kw,
-                do_sample=True,
-                temperature=args.temperature,
-                top_p=args.top_p,
-                top_k=args.top_k,
-                max_new_tokens=args.max_new_tokens,
-                use_cache=True,
-            )
-
-        generated_ids_trimmed = [
-            out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, output_ids)
-        ]
-        outputs = processor.batch_decode(
-            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
-        )[0]
-        outputs = outputs.strip()
-
-        results.append({"id": idx, "answer": outputs})
+        if answer_text is None:
+            failed_questions.append(idx)
+            print(f"[ERROR] question {idx} failed after 3 attempts - recorded as empty answer, process keeps running")
+            answer_map[idx] = ""
+        else:
+            answer_map[idx] = answer_text
 
         tmp_file = answers_file + ".tmp"
         with open(tmp_file, "w") as f:
-            json.dump(results, f, indent=2)
+            json.dump([{"id": i, "answer": a} for i, a in sorted(answer_map.items())], f, indent=2)
         os.replace(tmp_file, answers_file)
 
-    print(f"Saved {len(results)} answers to {answers_file}")
+    print(f"Saved {len(answer_map)} answers to {answers_file}")
+    if failed_questions:
+        print(f"WARNING: {len(failed_questions)} questions failed and were recorded as empty answers: {failed_questions[:20]}")
+        print("Retry them by re-running (resume re-attempts failed/empty answers automatically).")
 
 
 if __name__ == "__main__":
