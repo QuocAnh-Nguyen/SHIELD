@@ -69,7 +69,9 @@ def qwen2vl_clip_attack(image, qwen_processor, text, epsilon, num_steps, c, lr,
     if clip_model is None or clip_processor is None:
         clip_model, clip_processor = load_clip_model()
 
+    dtype = next(clip_model.parameters()).dtype
     inputs = clip_processor(text=text, images=image, return_tensors="pt", padding=True).to("cuda")
+    inputs["pixel_values"] = inputs["pixel_values"].to(dtype)
 
     if attack_type == "cw":
         perturbation = cw_attack(clip_model, inputs, epsilon=epsilon, num_steps=num_steps, c=c, lr=lr)

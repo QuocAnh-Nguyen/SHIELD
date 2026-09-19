@@ -32,9 +32,11 @@ def perform_clip_attack(
     if clip_model is None or clip_processor is None:
         clip_model, clip_processor = load_clip_model()
 
+    dtype = next(clip_model.parameters()).dtype
     inputs = clip_processor(
         text=text, images=image, return_tensors="pt", padding=True
     ).to("cuda")
+    inputs["pixel_values"] = inputs["pixel_values"].to(dtype)
 
     if attack_type == "cw":
         perturbation = cw_attack(
@@ -67,12 +69,12 @@ def cw_attack(model, inputs, epsilon, num_steps, c, lr=0.1, random_init=False):
 
     for _step in range(num_steps):
         mean = (
-            torch.tensor(CLIP_MEAN)
+            torch.tensor(CLIP_MEAN, dtype=inputs["pixel_values"].dtype)
             .view(3, 1, 1)
             .to(inputs["pixel_values"].device)
         )
         std = (
-            torch.tensor(CLIP_STD)
+            torch.tensor(CLIP_STD, dtype=inputs["pixel_values"].dtype)
             .view(3, 1, 1)
             .to(inputs["pixel_values"].device)
         )
@@ -105,12 +107,12 @@ def pgd_attack(model, inputs, epsilon, alpha, num_steps):
         inputs["pixel_values"], device=inputs["pixel_values"].device
     )
     mean = (
-        torch.tensor(CLIP_MEAN)
+        torch.tensor(CLIP_MEAN, dtype=inputs["pixel_values"].dtype)
         .view(1, 3, 1, 1)
         .to(inputs["pixel_values"].device)
     )
     std = (
-        torch.tensor(CLIP_STD)
+        torch.tensor(CLIP_STD, dtype=inputs["pixel_values"].dtype)
         .view(1, 3, 1, 1)
         .to(inputs["pixel_values"].device)
     )
