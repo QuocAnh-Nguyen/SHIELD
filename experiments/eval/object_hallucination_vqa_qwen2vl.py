@@ -32,6 +32,7 @@ def eval_model(args):
     max_pixels = 1280 * 28 * 28
     processor = AutoProcessor.from_pretrained(model_path, min_pixels=min_pixels, max_pixels=max_pixels)
     tokenizer = processor.tokenizer
+    model_name = model.config._name_or_path
 
     wrap_qwen2vl(model, tokenizer,
         caption_file=args.caption_file,
@@ -51,8 +52,9 @@ def eval_model(args):
         lr=args.cw_lr,
     )
 
-    with open(os.path.expanduser(args.question_file), "r") as f:
-        questions = json.load(f)
+    question_file = os.path.expanduser(args.question_file)
+    with open(question_file, "r") as f:
+        questions = [json.loads(line) for line in f if line.strip()]
 
     missing_images = [
         q["image"] for q in questions
@@ -74,25 +76,29 @@ def eval_model(args):
     answers_file = os.path.expanduser(args.answers_file)
     os.makedirs(os.path.dirname(answers_file), exist_ok=True)
 
-    results = []
+    done_ids = set()
     if os.path.exists(answers_file):
-        try:
-            with open(answers_file, "r") as f:
-                results = json.load(f)
-        except json.JSONDecodeError:
-            print("Existing answers file is corrupt - starting fresh")
-            results = []
-        if results and not all(r["id"] == i for i, r in enumerate(results)):
-            print("Answers file ids are not sequential - starting fresh")
-            results = []
-        if results:
-            print(f"Resuming: {len(results)}/{len(questions)} answers already saved")
+        with open(answers_file, "r") as f:
+            for line in f:
+                if line.strip():
+                    try:
+                        entry = json.loads(line)
+                        done_ids.add(entry["question_id"])
+                    except json.JSONDecodeError:
+                        pass
+        if done_ids:
+            print(f"Resuming: {len(done_ids)}/{len(questions)} answers already saved")
 
-    start_idx = len(results)
-    for line in tqdm(questions[start_idx:], initial=start_idx, total=len(questions)):
-        idx = line["id"]
+    ans_file = open(answers_file, "a")
+
+    for line in tqdm(questions):
+        idx = line["question_id"]
+        if idx in done_ids:
+            continue
+
         image_file = line["image"]
-        qs_text = line["question"]
+        qs_text = line["text"]
+        cur_prompt = qs_text
 
         image_path = os.path.join(args.image_folder, image_file)
         if not os.path.exists(image_path):
@@ -144,14 +150,18 @@ def eval_model(args):
         )[0]
         outputs = outputs.strip()
 
-        results.append({"id": idx, "answer": outputs})
+        ans_file.write(json.dumps({
+            "question_id": idx,
+            "prompt": cur_prompt,
+            "text": outputs,
+            "model_id": model_name,
+            "image": image_file,
+            "metadata": {}
+        }) + "\n")
+        ans_file.flush()
 
-        tmp_file = answers_file + ".tmp"
-        with open(tmp_file, "w") as f:
-            json.dump(results, f, indent=2)
-        os.replace(tmp_file, answers_file)
-
-    print(f"Saved {len(results)} answers to {answers_file}")
+    ans_file.close()
+    print(f"Saved answers to {answers_file}")
 
 
 if __name__ == "__main__":
@@ -165,7 +175,7 @@ if __name__ == "__main__":
     parser.add_argument("--top_k", type=int, default=None)
     parser.add_argument("--max-new-tokens", type=int, default=1024)
 
-    parser.add_argument("--noise_step", type=int, default=500)
+    parser.add_argument("--noise_step", type=int, default=999)
     parser.add_argument("--use_cd", action='store_true', default=False)
     parser.add_argument("--cd_alpha", type=float, default=2.0)
     parser.add_argument("--cd_beta", type=float, default=0.35)

@@ -51,8 +51,9 @@ def eval_model(args):
         lr=args.cw_lr,
     )
 
-    with open(os.path.expanduser(args.question_file), "r") as f:
-        questions = json.load(f)
+    question_file = os.path.expanduser(args.question_file)
+    with open(question_file, "r") as f:
+        questions = [json.loads(line) for line in f if line.strip()]
 
     missing_images = [
         q["image"] for q in questions
@@ -74,36 +75,39 @@ def eval_model(args):
     answers_file = os.path.expanduser(args.answers_file)
     os.makedirs(os.path.dirname(answers_file), exist_ok=True)
 
-    results = []
+    done_image_ids = set()
     if os.path.exists(answers_file):
-        try:
-            with open(answers_file, "r") as f:
-                results = json.load(f)
-        except json.JSONDecodeError:
-            print("Existing answers file is corrupt - starting fresh")
-            results = []
-        if results and not all(r["id"] == i for i, r in enumerate(results)):
-            print("Answers file ids are not sequential - starting fresh")
-            results = []
-        if results:
-            print(f"Resuming: {len(results)}/{len(questions)} answers already saved")
+        with open(answers_file, "r") as f:
+            for line in f:
+                if line.strip():
+                    try:
+                        entry = json.loads(line)
+                        done_image_ids.add(entry["image_id"])
+                    except json.JSONDecodeError:
+                        pass
+        if done_image_ids:
+            print(f"Resuming: {len(done_image_ids)}/{len(questions)} captions already saved")
 
-    start_idx = len(results)
-    for line in tqdm(questions[start_idx:], initial=start_idx, total=len(questions)):
-        idx = line["id"]
+    ans_file = open(answers_file, "a")
+
+    for line in tqdm(questions):
         image_file = line["image"]
-        qs_text = line["question"]
+        image_id = int(image_file.split('_')[-1].replace('.jpg', '').lstrip('0'))
+        if image_id in done_image_ids:
+            continue
+
+        cur_prompt = args.prompt or line.get("text", "Describe this image.")
 
         image_path = os.path.join(args.image_folder, image_file)
         if not os.path.exists(image_path):
-            raise FileNotFoundError(f"Missing image file for question {idx}: {image_path}")
+            raise FileNotFoundError(f"Missing image file for question {line.get('question_id')}: {image_path}")
 
         messages = [
             {
                 "role": "user",
                 "content": [
                     {"type": "image", "image": image_path},
-                    {"type": "text", "text": qs_text + " Please answer this question with one word."},
+                    {"type": "text", "text": cur_prompt},
                 ],
             }
         ]
@@ -128,7 +132,7 @@ def eval_model(args):
             output_ids = model.generate(
                 inputs.input_ids,
                 **shield_kw,
-                do_sample=True,
+                do_sample=args.do_sample,
                 temperature=args.temperature,
                 top_p=args.top_p,
                 top_k=args.top_k,
@@ -144,14 +148,14 @@ def eval_model(args):
         )[0]
         outputs = outputs.strip()
 
-        results.append({"id": idx, "answer": outputs})
+        ans_file.write(json.dumps({
+            "image_id": image_id,
+            "caption": outputs,
+        }) + "\n")
+        ans_file.flush()
 
-        tmp_file = answers_file + ".tmp"
-        with open(tmp_file, "w") as f:
-            json.dump(results, f, indent=2)
-        os.replace(tmp_file, answers_file)
-
-    print(f"Saved {len(results)} answers to {answers_file}")
+    ans_file.close()
+    print(f"Saved CHAIR captions to {answers_file}")
 
 
 if __name__ == "__main__":
@@ -160,27 +164,29 @@ if __name__ == "__main__":
     parser.add_argument("--image-folder", type=str, required=True)
     parser.add_argument("--question-file", type=str, required=True)
     parser.add_argument("--answers-file", type=str, required=True)
+    parser.add_argument("--prompt", type=str, default=None)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top_p", type=float, default=1)
     parser.add_argument("--top_k", type=int, default=None)
-    parser.add_argument("--max-new-tokens", type=int, default=1024)
+    parser.add_argument("--max-new-tokens", type=int, default=128)
+    parser.add_argument("--do-sample", action="store_true", default=False)
 
     parser.add_argument("--noise_step", type=int, default=500)
     parser.add_argument("--use_cd", action='store_true', default=False)
     parser.add_argument("--cd_alpha", type=float, default=2.0)
     parser.add_argument("--cd_beta", type=float, default=0.35)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--the", type=float, default=0.011)
+    parser.add_argument("--seed", type=int, default=22)
+    parser.add_argument("--the", type=float, default=0.002)
     parser.add_argument("--gamma_gain", type=float, default=3.0)
     parser.add_argument("--gamma_reduce", type=float, default=3.0)
-    parser.add_argument("--gain_per", type=float, default=0.5)
+    parser.add_argument("--gain_per", type=float, default=0.55)
     parser.add_argument("--reduce_per", type=float, default=0.0)
-    parser.add_argument("--bias_weight", type=float, default=0.1)
+    parser.add_argument("--bias_weight", type=float, default=0.01)
     parser.add_argument("--bias_sample_num", type=float, default=32)
     parser.add_argument("--cw_epsilon", type=float, default=0.14)
     parser.add_argument("--cw_num_steps", type=float, default=30)
     parser.add_argument("--cw_c", type=float, default=12)
-    parser.add_argument("--cw_lr", type=float, default=0.14)
+    parser.add_argument("--cw_lr", type=float, default=0.02)
     parser.add_argument("--caption-file", type=str, required=True)
     args = parser.parse_args()
     set_seed(args.seed)

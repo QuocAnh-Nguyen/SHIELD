@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-CONFIG_FILE="$REPOSITORY_ROOT/experiments/configs/qwen2vl_beaf.env"
+CONFIG_FILE="$REPOSITORY_ROOT/experiments/configs/qwen2vl_chair.env"
 DRY_RUN=0
 
 while [[ $# -gt 0 ]]; do
@@ -30,10 +30,10 @@ fi
 source "$CONFIG_FILE"
 
 required_variables=(
-    MODEL_PATH BEAF_IMAGE_DIR BEAF_QNA_FILE BEAF_CAPTION_FILE OUTPUT_DIR
-    CUDA_VISIBLE_DEVICES SEED CD_ALPHA CD_BETA NOISE_STEP THE GAMMA_GAIN
-    GAMMA_REDUCE GAIN_PER REDUCE_PER BIAS_WEIGHT BIAS_SAMPLE_NUM CW_EPSILON
-    CW_NUM_STEPS CW_C CW_LR MAX_NEW_TOKENS
+    MODEL_PATH COCO_IMAGE_DIR CHAIR_QUESTION_FILE CHAIR_CAPTION_FILE
+    CHAIR_CACHE_FILE OUTPUT_DIR CUDA_VISIBLE_DEVICES SEED CD_ALPHA CD_BETA
+    NOISE_STEP THE GAMMA_GAIN GAMMA_REDUCE GAIN_PER REDUCE_PER BIAS_WEIGHT
+    BIAS_SAMPLE_NUM CW_EPSILON CW_NUM_STEPS CW_C CW_LR MAX_NEW_TOKENS PROMPT
 )
 
 for variable in "${required_variables[@]}"; do
@@ -43,26 +43,28 @@ for variable in "${required_variables[@]}"; do
     fi
 done
 
-answers_file="$OUTPUT_DIR/qwen2vl_beaf_answers_seed${SEED}.json"
+answers_file="$OUTPUT_DIR/qwen2vl_chair_answers_bias_weight${BIAS_WEIGHT}_bias_sample_num${BIAS_SAMPLE_NUM}_alpha${CD_ALPHA}_beta${CD_BETA}_the${THE}_gamma${GAMMA_GAIN}_per${GAIN_PER}_cw_epsilon${CW_EPSILON}_cw_c${CW_C}_cw_lr${CW_LR}_seed${SEED}.jsonl"
 
 caption_command=(
     python experiments/eval/generate_first_captions_qwen2vl.py
     --model-path "$MODEL_PATH"
-    --image-folder "$BEAF_IMAGE_DIR"
-    --question-file "$BEAF_QNA_FILE"
-    --output-file "$BEAF_CAPTION_FILE"
+    --image-folder "$COCO_IMAGE_DIR"
+    --question-file "$CHAIR_QUESTION_FILE"
+    --output-file "$CHAIR_CAPTION_FILE"
     --prompt "Describe this image."
     --max-new-tokens 70
     --seed "$SEED"
 )
 
 inference_command=(
-    python experiments/eval/beaf_qwen2vl.py
+    python experiments/eval/chair_qwen2vl.py
     --model-path "$MODEL_PATH"
-    --question-file "$BEAF_QNA_FILE"
-    --image-folder "$BEAF_IMAGE_DIR"
-    --caption-file "$BEAF_CAPTION_FILE"
+    --question-file "$CHAIR_QUESTION_FILE"
+    --image-folder "$COCO_IMAGE_DIR"
+    --caption-file "$CHAIR_CAPTION_FILE"
     --answers-file "$answers_file"
+    --prompt "$PROMPT"
+    --max-new-tokens "$MAX_NEW_TOKENS"
     --use_cd
     --cd_alpha "$CD_ALPHA"
     --cd_beta "$CD_BETA"
@@ -79,13 +81,14 @@ inference_command=(
     --cw_c "$CW_C"
     --cw_lr "$CW_LR"
     --seed "$SEED"
-    --max-new-tokens "$MAX_NEW_TOKENS"
 )
 
 evaluation_command=(
-    python experiments/eval/beaf_metric.py
-    --qna-path "$BEAF_QNA_FILE"
-    --model-answers "$answers_file"
+    python experiments/eval/chair_eval.py
+    --cap_file "$answers_file"
+    --image_id_key image_id
+    --caption_key caption
+    --cache "$CHAIR_CACHE_FILE"
 )
 
 printf 'CUDA_VISIBLE_DEVICES=%s\n' "$CUDA_VISIBLE_DEVICES"

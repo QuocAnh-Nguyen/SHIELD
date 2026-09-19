@@ -50,9 +50,11 @@ def eval_model(args, image_files, existing_entries):
 
     model_path = os.path.expanduser(args.model_path)
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        model_path, torch_dtype="auto", device_map="auto"
+        model_path, torch_dtype=torch.float16, device_map="auto"
     )
-    processor = AutoProcessor.from_pretrained(model_path)
+    min_pixels = 256 * 28 * 28
+    max_pixels = 1280 * 28 * 28
+    processor = AutoProcessor.from_pretrained(model_path, min_pixels=min_pixels, max_pixels=max_pixels)
     model_name = model.config._name_or_path
 
     done = {entry["image"] for entry in existing_entries}
@@ -110,6 +112,14 @@ def eval_model(args, image_files, existing_entries):
     out_file.close()
 
 
+def load_questions(question_file):
+    with open(os.path.expanduser(question_file), "r") as f:
+        content = f.read().strip()
+    if content.startswith("["):
+        return json.loads(content)
+    return [json.loads(line) for line in content.splitlines() if line.strip()]
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=str, default="Qwen/Qwen2-VL-7B-Instruct")
@@ -126,8 +136,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     set_seed(args.seed)
 
-    with open(os.path.expanduser(args.question_file), "r") as f:
-        questions = json.load(f)
+    questions = load_questions(args.question_file)
     image_files = unique_images_in_order(questions)
     existing_entries = load_existing(args.output_file)
     done = {entry["image"] for entry in existing_entries}

@@ -91,7 +91,7 @@ def qwen2vl_clip_attack(image, qwen_processor, text, epsilon, num_steps, c, lr,
     ).squeeze(0)
 
     img_arr = np.asarray(image.convert("RGB")).astype(np.float32) / 255.0
-    perturbed_arr = np.clip(img_arr + perturbation.numpy(), 0.0, 1.0)
+    perturbed_arr = np.clip(img_arr + perturbation.permute(1, 2, 0).numpy(), 0.0, 1.0)
     perturbed_image = Image.fromarray((perturbed_arr * 255.0).astype(np.uint8))
 
     proc_out = qwen_processor(images=[perturbed_image], text=None, return_tensors="pt")
@@ -451,6 +451,8 @@ def wrap_qwen2vl(model, tokenizer, caption_file=None, qwen_processor=None, **kwa
         _qwen2vl_patched_prepare_inputs_for_generation_cd, model
     )
     model.shield_prepare = types.MethodType(_qwen2vl_shield_prepare, model)
+    model.sample = types.MethodType(sampling.sample, model)
+    model.greedy_search = types.MethodType(sampling.greedy_search, model)
 
     sampling.enable_shield_sampling()
 

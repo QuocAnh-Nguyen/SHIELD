@@ -2,13 +2,18 @@
 set -euo pipefail
 
 REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-CONFIG_FILE="$REPOSITORY_ROOT/experiments/configs/qwen2vl_beaf.env"
+CONFIG_FILE="$REPOSITORY_ROOT/experiments/configs/qwen2vl_pope_coco.env"
+SPLIT="random"
 DRY_RUN=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --config)
             CONFIG_FILE="$2"
+            shift 2
+            ;;
+        --split)
+            SPLIT="$2"
             shift 2
             ;;
         --dry-run)
@@ -29,8 +34,17 @@ fi
 
 source "$CONFIG_FILE"
 
+case "$SPLIT" in
+    random|popular|adversarial)
+        ;;
+    *)
+        printf 'Invalid POPE split: %s\n' "$SPLIT" >&2
+        exit 2
+        ;;
+esac
+
 required_variables=(
-    MODEL_PATH BEAF_IMAGE_DIR BEAF_QNA_FILE BEAF_CAPTION_FILE OUTPUT_DIR
+    MODEL_PATH COCO_IMAGE_DIR POPE_DATA_DIR POPE_CAPTION_FILE OUTPUT_DIR
     CUDA_VISIBLE_DEVICES SEED CD_ALPHA CD_BETA NOISE_STEP THE GAMMA_GAIN
     GAMMA_REDUCE GAIN_PER REDUCE_PER BIAS_WEIGHT BIAS_SAMPLE_NUM CW_EPSILON
     CW_NUM_STEPS CW_C CW_LR MAX_NEW_TOKENS
@@ -43,25 +57,26 @@ for variable in "${required_variables[@]}"; do
     fi
 done
 
-answers_file="$OUTPUT_DIR/qwen2vl_beaf_answers_seed${SEED}.json"
+question_file="$POPE_DATA_DIR/coco_pope_${SPLIT}.json"
+answers_file="$OUTPUT_DIR/qwen2vl_coco_pope_${SPLIT}_answers_bias_weight${BIAS_WEIGHT}_bias_sample_num${BIAS_SAMPLE_NUM}_alpha${CD_ALPHA}_beta${CD_BETA}_the${THE}_gamma${GAMMA_GAIN}_per${GAIN_PER}_cw_epsilon${CW_EPSILON}_cw_c${CW_C}_cw_lr${CW_LR}_seed${SEED}.jsonl"
 
 caption_command=(
     python experiments/eval/generate_first_captions_qwen2vl.py
     --model-path "$MODEL_PATH"
-    --image-folder "$BEAF_IMAGE_DIR"
-    --question-file "$BEAF_QNA_FILE"
-    --output-file "$BEAF_CAPTION_FILE"
+    --image-folder "$COCO_IMAGE_DIR"
+    --question-file "$question_file"
+    --output-file "$POPE_CAPTION_FILE"
     --prompt "Describe this image."
     --max-new-tokens 70
     --seed "$SEED"
 )
 
 inference_command=(
-    python experiments/eval/beaf_qwen2vl.py
+    python experiments/eval/object_hallucination_vqa_qwen2vl.py
     --model-path "$MODEL_PATH"
-    --question-file "$BEAF_QNA_FILE"
-    --image-folder "$BEAF_IMAGE_DIR"
-    --caption-file "$BEAF_CAPTION_FILE"
+    --question-file "$question_file"
+    --image-folder "$COCO_IMAGE_DIR"
+    --caption-file "$POPE_CAPTION_FILE"
     --answers-file "$answers_file"
     --use_cd
     --cd_alpha "$CD_ALPHA"
@@ -83,9 +98,9 @@ inference_command=(
 )
 
 evaluation_command=(
-    python experiments/eval/beaf_metric.py
-    --qna-path "$BEAF_QNA_FILE"
-    --model-answers "$answers_file"
+    python experiments/eval/eval_pope.py
+    --gt_files "$question_file"
+    --gen_files "$answers_file"
 )
 
 printf 'CUDA_VISIBLE_DEVICES=%s\n' "$CUDA_VISIBLE_DEVICES"
