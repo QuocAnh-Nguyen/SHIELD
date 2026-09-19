@@ -2,8 +2,8 @@
 set -euo pipefail
 
 REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MODEL_TARGET="all"
-BENCHMARKS="beaf,pope,chair,causalhal"
+MODEL_TARGET="qwen2vl"
+BENCHMARKS="pope,chair"
 DRY_RUN=0
 
 while [[ $# -gt 0 ]]; do
