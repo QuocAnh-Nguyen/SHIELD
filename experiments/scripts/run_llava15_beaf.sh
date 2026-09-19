@@ -51,7 +51,8 @@ caption_command=(
     --image-folder "$BEAF_IMAGE_DIR"
     --question-file "$BEAF_QNA_FILE"
     --output-file "$BEAF_CAPTION_FILE"
-    --max-new-tokens 70
+    --prompt "Describe this image."
+    --max-new-tokens 128
     --seed "$SEED"
 )
 
