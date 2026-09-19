@@ -34,11 +34,13 @@ def compute_shield_image_weights(
     bias_tensor,
 ):
     """Compute SHIELD-enhanced image features and the selected token indices."""
+    dtype = image_features.dtype
+    device = image_features.device
     image_features_normalized = F.normalize(
         F.adaptive_max_pool1d(image_features, 768), p=2, dim=-1
-    ).float()
+    ).to(dtype=dtype, device=device)
     text_features_normalized = F.normalize(cap_tensor, p=2, dim=-1).to(
-        image_features_normalized.device
+        dtype=dtype, device=device
     )
 
     cosine_similarity = torch.matmul(
@@ -54,9 +56,11 @@ def compute_shield_image_weights(
 
     patch_weight_gain = torch.where(
         patch_weight <= gain_per,
-        torch.tensor(0.0),
+        torch.tensor(0.0, device=device, dtype=dtype),
         patch_weight,
-    ).view(1, -1, 1).half()
+    ).view(1, -1, 1).to(dtype=dtype, device=device)
+
+    bias_tensor = bias_tensor.to(dtype=dtype, device=device)
 
     enhanced_image_features = (
         image_features - bias_weight * bias_tensor + image_features * patch_weight_gain
