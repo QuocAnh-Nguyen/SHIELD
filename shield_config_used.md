@@ -188,6 +188,31 @@ Caption generation follows the SHIELD authors' measured settings with the mentor
 - Model answers must be a JSON array of `{"id": int, "answer": str}` in strict id order (0..26063); every question must be answered.
 - Every evaluated image (original and manipulated) gets its own first-round caption; the caption generator captions each unique image file exactly as referenced by the qna, so manipulated `_NN.png`/`_NN.jpg` names are captioned 1:1.
 
+## Qwen2-VL BEAF + POPE-COCO
+
+Pipelines: `experiments/scripts/run_qwen2vl_beaf.sh` (config `experiments/configs/qwen2vl_beaf.env`) and `experiments/scripts/run_qwen2vl_pope_coco.sh` (config `experiments/configs/qwen2vl_pope_coco.env`). Same three stages as the LLaVA pipelines: caption gen (`generate_first_captions_qwen2vl.py`, prompt `Describe this image.`, `--max-new-tokens 70`, greedy), SHIELD inference, metric (`beaf_metric.py` / `eval_pope.py`).
+
+Mentor-specified Qwen2-VL protocol:
+
+- Question suffix: `Please answer with yes or no.` (appended to the question text in `beaf_qwen2vl.py` and `object_hallucination_vqa_qwen2vl.py`).
+- `MAX_NEW_TOKENS=6` (both configs) — short decoding per the mentor; answers are still normalized to `yes`/`no` by the metrics.
+
+`beaf_qwen2vl.py` additions (mirror the LLaVA adapter):
+
+- Per-image SHIELD keyword cache: the CLIP attack is deterministic (`random_init=False`), so keywords are cached per image and reused across its questions (bit-identical results, ~2x faster).
+- Id-set resume: restarts skip already-answered ids and auto-retry empty answers; saves are atomic and sorted by id.
+- Per-question 3-attempt retry that holds VRAM, then records an empty answer and moves on (skip-on-error, no crash).
+
+**Environment:** Qwen2-VL needs `transformers>=4.37` (the server `qwen2vl_env` at `/home/nvidia-lab/miniconda3/envs/qwen2vl_env` has 4.47.1). Run with that env:
+
+```bash
+conda activate /home/nvidia-lab/miniconda3/envs/qwen2vl_env
+# BEAF
+nohup bash experiments/scripts/run_qwen2vl_beaf.sh --config experiments/configs/qwen2vl_beaf.env > qwen_beaf_run.log 2>&1 &
+# POPE-COCO (one split at a time)
+nohup bash experiments/scripts/run_qwen2vl_pope_coco.sh --config experiments/configs/qwen2vl_pope_coco.env --split random > qwen_pope_random.log 2>&1 &
+```
+
 ## Causal-HalBench (dropped, kept for reference)
 
 **Status: dropped** (mentor reverted to BEAF as the priority benchmark; the BEAF pipeline above is active again). The Causal-HalBench pipelines below are kept for reference and can be removed later.
