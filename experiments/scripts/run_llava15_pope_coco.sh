@@ -86,6 +86,12 @@ command=(
     --max-new-tokens "$MAX_NEW_TOKENS"
 )
 
+evaluation_command=(
+    python experiments/eval/eval_pope.py
+    --gt_files "$question_file"
+    --gen_files "$answers_file"
+)
+
 printf 'CUDA_VISIBLE_DEVICES=%s\n' "$CUDA_VISIBLE_DEVICES"
 if [[ -n "${HF_HOME:-}" ]]; then
     printf 'HF_HOME=%s\n' "$HF_HOME"
@@ -94,6 +100,8 @@ if [[ -n "${HF_HUB_DISABLE_XET:-}" ]]; then
     printf 'HF_HUB_DISABLE_XET=%s\n' "$HF_HUB_DISABLE_XET"
 fi
 printf '%q ' "${command[@]}"
+printf '\n'
+printf '%q ' "${evaluation_command[@]}"
 printf '\n'
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -107,3 +115,4 @@ if [[ -n "${HF_HUB_DISABLE_XET:-}" ]]; then
     export HF_HUB_DISABLE_XET
 fi
 CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES" "${command[@]}"
+"${evaluation_command[@]}"

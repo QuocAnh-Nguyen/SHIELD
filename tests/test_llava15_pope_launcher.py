@@ -68,6 +68,8 @@ class LLaVA15PopeLauncherTests(unittest.TestCase):
         self.assertIn("--cd_alpha 2.0", completed.stdout)
         self.assertIn("--bias_sample_num 32", completed.stdout)
         self.assertIn("--max-new-tokens 1024", completed.stdout)
+        self.assertIn("eval_pope.py", completed.stdout)
+        self.assertIn("--gen_files", completed.stdout)
         self.assertIn("/results/shield/llava15_coco_pope_adversarial", completed.stdout)
 
 
