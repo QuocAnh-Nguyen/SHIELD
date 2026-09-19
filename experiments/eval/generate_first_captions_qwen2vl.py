@@ -50,9 +50,11 @@ def eval_model(args, image_files, existing_entries):
 
     model_path = os.path.expanduser(args.model_path)
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        model_path, torch_dtype="auto", device_map="auto"
+        model_path, torch_dtype=torch.float16, device_map="auto"
     )
-    processor = AutoProcessor.from_pretrained(model_path)
+    min_pixels = 256 * 28 * 28
+    max_pixels = 1280 * 28 * 28
+    processor = AutoProcessor.from_pretrained(model_path, min_pixels=min_pixels, max_pixels=max_pixels)
     model_name = model.config._name_or_path
 
     done = {entry["image"] for entry in existing_entries}
