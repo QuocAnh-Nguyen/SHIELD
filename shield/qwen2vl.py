@@ -91,7 +91,7 @@ def qwen2vl_clip_attack(image, qwen_processor, text, epsilon, num_steps, c, lr,
     ).squeeze(0)
 
     img_arr = np.asarray(image.convert("RGB")).astype(np.float32) / 255.0
-    perturbed_arr = np.clip(img_arr + perturbation.numpy(), 0.0, 1.0)
+    perturbed_arr = np.clip(img_arr + perturbation.permute(1, 2, 0).numpy(), 0.0, 1.0)
     perturbed_image = Image.fromarray((perturbed_arr * 255.0).astype(np.uint8))
 
     proc_out = qwen_processor(images=[perturbed_image], text=None, return_tensors="pt")
