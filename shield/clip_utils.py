@@ -1,6 +1,7 @@
 """CLIP model loading, caching, and text feature extraction."""
 
 import torch
+import os
 
 CLIP_MEAN = [0.48145466, 0.4578275, 0.40821073]
 CLIP_STD = [0.26862954, 0.26130258, 0.27577711]
@@ -13,11 +14,14 @@ _clip_cache = {
 
 def load_clip_model(
     model_name="openai/clip-vit-large-patch14-336",
-    cache_dir="checkpoints/",
+    cache_dir=None,
     device="cuda",
 ):
     """Load the CLIP model and processor with caching."""
     global _clip_cache
+
+    if cache_dir is None or cache_dir == "checkpoints/":
+        cache_dir = os.environ.get("HF_HOME") or os.environ.get("TRANSFORMERS_CACHE") or "checkpoints/"
 
     if _clip_cache["model"] is None:
         from transformers import CLIPModel, CLIPProcessor
