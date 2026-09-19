@@ -352,8 +352,8 @@ class CHAIR(object):
                num_hallucinated_caps += 1
             
             # add
-            # num_gt_objects += len(gt_objects)
-            # num_recall_gt_objects += len(recall_gt_objects)
+            num_gt_objects += len(gt_objects)
+            num_recall_gt_objects += len(recall_gt_objects)
     
             cap_dict['metrics']['CHAIRs'] = int(hallucinated)
             cap_dict['metrics']['CHAIRi'] = 0.
@@ -371,11 +371,11 @@ class CHAIR(object):
         chair_s = (num_hallucinated_caps/num_caps)
         chair_i = (hallucinated_word_count/coco_word_count)
         # add
-        # recall = num_recall_gt_objects / num_gt_objects
-    
+        recall = num_recall_gt_objects / num_gt_objects
+
         output['overall_metrics'] = {'CHAIRs': chair_s,
-                                     'CHAIRi': chair_i}
-                                    #  'Recall': recall}
+                                     'CHAIRi': chair_i,
+                                     'Recall': recall}
     
         return output 
 
