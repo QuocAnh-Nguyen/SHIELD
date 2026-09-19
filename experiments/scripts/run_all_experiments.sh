@@ -53,21 +53,21 @@ run_llava15_pipeline() {
     log_info "=========================================="
 
     if [[ "$BENCHMARKS" == *"beaf"* ]]; then
-        run_step "LLaVA-1.5 BEAF" ./experiments/scripts/run_llava15_beaf.sh
+        run_step "LLaVA-1.5 BEAF" bash ./experiments/scripts/run_llava15_beaf.sh
     fi
 
     if [[ "$BENCHMARKS" == *"pope"* ]]; then
         for split in random popular adversarial; do
-            run_step "LLaVA-1.5 POPE-COCO ($split)" ./experiments/scripts/run_llava15_pope_coco.sh --split "$split"
+            run_step "LLaVA-1.5 POPE-COCO ($split)" bash ./experiments/scripts/run_llava15_pope_coco.sh --split "$split"
         done
     fi
 
     if [[ "$BENCHMARKS" == *"chair"* ]]; then
-        run_step "LLaVA-1.5 CHAIR" ./experiments/scripts/run_llava15_chair.sh
+        run_step "LLaVA-1.5 CHAIR" bash ./experiments/scripts/run_llava15_chair.sh
     fi
 
     if [[ "$BENCHMARKS" == *"causalhal"* ]]; then
-        run_step "LLaVA-1.5 CausalHal" ./experiments/scripts/run_llava15_causalhal.sh
+        run_step "LLaVA-1.5 CausalHal" bash ./experiments/scripts/run_llava15_causalhal.sh
     fi
 }
 
@@ -77,21 +77,21 @@ run_qwen2vl_pipeline() {
     log_info "=========================================="
 
     if [[ "$BENCHMARKS" == *"beaf"* ]]; then
-        run_step "Qwen2-VL BEAF" ./experiments/scripts/run_qwen2vl_beaf.sh
+        run_step "Qwen2-VL BEAF" bash ./experiments/scripts/run_qwen2vl_beaf.sh
     fi
 
     if [[ "$BENCHMARKS" == *"pope"* ]]; then
         for split in random popular adversarial; do
-            run_step "Qwen2-VL POPE-COCO ($split)" ./experiments/scripts/run_qwen2vl_pope_coco.sh --split "$split"
+            run_step "Qwen2-VL POPE-COCO ($split)" bash ./experiments/scripts/run_qwen2vl_pope_coco.sh --split "$split"
         done
     fi
 
     if [[ "$BENCHMARKS" == *"chair"* ]]; then
-        run_step "Qwen2-VL CHAIR" ./experiments/scripts/run_qwen2vl_chair.sh
+        run_step "Qwen2-VL CHAIR" bash ./experiments/scripts/run_qwen2vl_chair.sh
     fi
 
     if [[ "$BENCHMARKS" == *"causalhal"* ]]; then
-        run_step "Qwen2-VL CausalHal" ./experiments/scripts/run_qwen2vl_causalhal.sh
+        run_step "Qwen2-VL CausalHal" bash ./experiments/scripts/run_qwen2vl_causalhal.sh
     fi
 }
 
