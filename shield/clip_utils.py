@@ -50,9 +50,9 @@ def get_clip_text_features(text, clip_model=None, clip_processor=None, device="c
     if clip_model is None or clip_processor is None:
         clip_model, clip_processor = load_clip_model(device=device)
 
-    cap_ids = clip_processor(text=[text], return_tensors="pt", padding=True)[
-        "input_ids"
-    ].to(device)
+    cap_ids = clip_processor(
+        text=[text], return_tensors="pt", padding=True, truncation=True
+    )["input_ids"].to(device)
     cap_tensor = clip_model.text_model(cap_ids).last_hidden_state[:, 1:, :]
 
     return cap_tensor

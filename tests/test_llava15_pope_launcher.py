@@ -408,7 +408,7 @@ class Qwen2VLBeafLauncherTests(unittest.TestCase):
                         "CW_NUM_STEPS=30",
                         "CW_C=12",
                         "CW_LR=0.14",
-                        "MAX_NEW_TOKENS=1024",
+                        "MAX_NEW_TOKENS=6",
                     ]
                 )
                 + "\n",
@@ -438,7 +438,7 @@ class Qwen2VLBeafLauncherTests(unittest.TestCase):
         self.assertIn("--image-folder /datasets/beaf", completed.stdout)
         self.assertIn("--caption-file /results/captions/qwen2vl_beaf.jsonl", completed.stdout)
         self.assertIn("--cd_alpha 2.0", completed.stdout)
-        self.assertIn("--max-new-tokens 1024", completed.stdout)
+        self.assertIn("--max-new-tokens 6", completed.stdout)
         self.assertIn("beaf_metric.py", completed.stdout)
         self.assertIn("--model-answers /results/shield/qwen2vl_beaf_answers_seed42.json", completed.stdout)
 

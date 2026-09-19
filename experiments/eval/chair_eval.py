@@ -15,7 +15,19 @@ import os
 import sys
 import nltk
 import json
-from pattern.en import singularize
+try:
+    from pattern.en import singularize
+except ImportError:
+    import nltk
+    from nltk.stem import WordNetLemmatizer
+    try:
+        nltk.download('wordnet', quiet=True)
+        nltk.download('omw-1.4', quiet=True)
+    except Exception:
+        pass
+    _lemmatizer = WordNetLemmatizer()
+    def singularize(word):
+        return _lemmatizer.lemmatize(word, 'n')
 import argparse
 import tqdm
 import pickle
