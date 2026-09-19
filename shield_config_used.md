@@ -47,7 +47,7 @@ These values match the default expansions in `experiments/scripts/llava1.5_pope_
 
 ## Kaggle Execution (Branch: `kaggle-eval`)
 
-The `kaggle-eval` branch contains dedicated Kaggle configs for running POPE-COCO and CHAIR on Kaggle (`CUDA_VISIBLE_DEVICES=0,1` for 2x T4 GPUs, `HF_HOME=/kaggle/working/hf_cache`).
+The `kaggle-eval` branch contains dedicated Kaggle configs for running POPE-COCO and CHAIR on Kaggle (`CUDA_VISIBLE_DEVICES=0,1` for 2x T4 GPUs, `HF_HOME=/root/hf_cache`).
 
 ### Kaggle POPE-COCO
 
@@ -58,7 +58,7 @@ The `kaggle-eval` branch contains dedicated Kaggle configs for running POPE-COCO
 ```bash
 cd /kaggle/working/SHIELD
 git checkout kaggle-eval
-export PATH="/root/shield_env/bin:/opt/bin:${PATH:-}" LD_LIBRARY_PATH="/usr/local/nvidia/lib64:${LD_LIBRARY_PATH:-}" HF_HOME=/kaggle/working/hf_cache HF_HUB_DISABLE_XET=1
+export PATH="/root/shield_env/bin:/opt/bin:${PATH:-}" LD_LIBRARY_PATH="/usr/local/nvidia/lib64:${LD_LIBRARY_PATH:-}" HF_HOME=/root/hf_cache HF_HUB_DISABLE_XET=1
 
 # Run Random split
 bash experiments/scripts/run_llava15_pope_coco.sh --config experiments/configs/llava15_pope_coco_kaggle.env --split random
@@ -85,7 +85,7 @@ Evaluation is performed automatically by `eval_pope.py` on the actual generated 
 ```bash
 cd /kaggle/working/SHIELD
 git checkout kaggle-eval
-export PATH="/root/shield_env/bin:/opt/bin:${PATH:-}" LD_LIBRARY_PATH="/usr/local/nvidia/lib64:${LD_LIBRARY_PATH:-}" HF_HOME=/kaggle/working/hf_cache HF_HUB_DISABLE_XET=1
+export PATH="/root/shield_env/bin:/opt/bin:${PATH:-}" LD_LIBRARY_PATH="/usr/local/nvidia/lib64:${LD_LIBRARY_PATH:-}" HF_HOME=/root/hf_cache HF_HUB_DISABLE_XET=1
 
 bash experiments/scripts/run_llava15_chair.sh --config experiments/configs/llava15_chair_kaggle.env
 ```
