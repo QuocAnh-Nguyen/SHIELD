@@ -121,7 +121,7 @@ if __name__ == "__main__":
     parser.add_argument("--output-file", type=str, required=True)
     parser.add_argument("--conv-mode", type=str, default="llava_v1")
     parser.add_argument("--prompt", type=str, default=DEFAULT_CAPTION_PROMPT)
-    parser.add_argument("--max-new-tokens", type=int, default=512)
+    parser.add_argument("--max-new-tokens", type=int, default=70)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top_p", type=float, default=1)
     parser.add_argument("--top_k", type=int, default=None)
