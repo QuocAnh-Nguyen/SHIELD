@@ -45,7 +45,54 @@ Optional runtime variables:
 
 These values match the default expansions in `experiments/scripts/llava1.5_pope_coco.bash` and `experiments/scripts/llava1.5_chair.bash`.
 
-## POPE-COCO
+## Kaggle Execution (Branch: `kaggle-eval`)
+
+The `kaggle-eval` branch contains dedicated Kaggle configs for running POPE-COCO and CHAIR on Kaggle (`CUDA_VISIBLE_DEVICES=0,1` for 2x T4 GPUs, `HF_HOME=/kaggle/working/hf_cache`).
+
+### Kaggle POPE-COCO
+
+- **Config**: `experiments/configs/llava15_pope_coco_kaggle.env`
+- **Images**: Uses the 500 COCO val2014 images located at `/kaggle/working/data/beaf`.
+- **Run commands**:
+
+```bash
+cd /kaggle/working/SHIELD
+git checkout kaggle-eval
+export PATH="/root/shield_env/bin:/opt/bin:${PATH:-}" LD_LIBRARY_PATH="/usr/local/nvidia/lib64:${LD_LIBRARY_PATH:-}" HF_HOME=/kaggle/working/hf_cache HF_HUB_DISABLE_XET=1
+
+# Run Random split
+bash experiments/scripts/run_llava15_pope_coco.sh --config experiments/configs/llava15_pope_coco_kaggle.env --split random
+
+# Run Popular split
+bash experiments/scripts/run_llava15_pope_coco.sh --config experiments/configs/llava15_pope_coco_kaggle.env --split popular
+
+# Run Adversarial split
+bash experiments/scripts/run_llava15_pope_coco.sh --config experiments/configs/llava15_pope_coco_kaggle.env --split adversarial
+```
+
+Evaluation is performed automatically by `eval_pope.py` on the actual generated text outputs, reporting Accuracy, Precision, Recall, F1, and Yes-proportion for each split.
+
+### Kaggle CHAIR
+
+- **Config**: `experiments/configs/llava15_chair_kaggle.env`
+- **Protocol**:
+  - `SEED=22`
+  - `PROMPT="Describe this image."`
+  - `MAX_NEW_TOKENS=128`
+  - `COCO_IMAGE_DIR=/kaggle/input/datasets/nadaibrahim/coco2014/val2014/val2014`
+- **Run command**:
+
+```bash
+cd /kaggle/working/SHIELD
+git checkout kaggle-eval
+export PATH="/root/shield_env/bin:/opt/bin:${PATH:-}" LD_LIBRARY_PATH="/usr/local/nvidia/lib64:${LD_LIBRARY_PATH:-}" HF_HOME=/kaggle/working/hf_cache HF_HUB_DISABLE_XET=1
+
+bash experiments/scripts/run_llava15_chair.sh --config experiments/configs/llava15_chair_kaggle.env
+```
+
+Evaluation is performed automatically by `chair_eval.py` (Maxlinn standalone CHAIR metric), reporting CHAIRs, CHAIRi, Recall, and Caption Length.
+
+## POPE-COCO (Server)
 
 Configured source paths:
 
