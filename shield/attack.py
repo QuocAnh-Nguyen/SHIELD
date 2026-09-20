@@ -65,7 +65,6 @@ def cw_attack(model, inputs, epsilon, num_steps, c, lr=0.1, random_init=False):
         )
 
     optimizer = optim.Adam([delta], lr=lr)
-    scaler = torch.cuda.amp.GradScaler()
     ori = inputs["pixel_values"].clone()
 
     for _step in range(num_steps):
@@ -91,9 +90,8 @@ def cw_attack(model, inputs, epsilon, num_steps, c, lr=0.1, random_init=False):
         if loss < 0:
             break
         optimizer.zero_grad()
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        loss.backward()
+        optimizer.step()
 
         delta.data = torch.clamp(delta.data, -epsilon, epsilon)
 
