@@ -13,6 +13,7 @@ def apply_perturbation(image_tensor, perturbation):
     normalized_min = (0 - mean) / std
     normalized_max = (1 - mean) / std
 
+    perturbation = torch.nan_to_num(perturbation, nan=0.0)
     return torch.clamp(image_tensor + perturbation, normalized_min, normalized_max)
 
 

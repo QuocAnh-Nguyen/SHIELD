@@ -95,10 +95,11 @@ def qwen2vl_clip_attack(image, qwen_processor, text, epsilon, num_steps, c, lr,
     ).squeeze(0)
 
     img_arr = np.asarray(image.convert("RGB")).astype(np.float32) / 255.0
-    perturbed_arr = np.clip(img_arr + perturbation.permute(1, 2, 0).numpy(), 0.0, 1.0)
+    perturbed_arr = np.nan_to_num(img_arr + perturbation.permute(1, 2, 0).numpy(), nan=0.0, posinf=1.0, neginf=0.0)
+    perturbed_arr = np.clip(perturbed_arr, 0.0, 1.0)
     perturbed_image = Image.fromarray((perturbed_arr * 255.0).astype(np.uint8))
 
-    proc_out = qwen_processor(images=[perturbed_image], text=None, return_tensors="pt")
+    proc_out = qwen_processor.image_processor(images=[perturbed_image], return_tensors="pt")
     return proc_out["pixel_values"][0], proc_out["image_grid_thw"]
 
 
@@ -140,6 +141,10 @@ def _qwen2vl_patched_forward(
     video_grid_thw=None,
     rope_deltas=None,
     cache_position=None,
+    images=None,
+    images_cd=None,
+    cd_alpha=None,
+    cd_beta=None,
     cap_tensor=None,
     the=None,
     gamma_gain=None,
@@ -445,7 +450,7 @@ def wrap_qwen2vl(model, tokenizer, caption_file=None, qwen_processor=None, **kwa
         "defaults": defaults,
     }
 
-    model._shield_original_forward = type(model).forward
+    model._shield_original_forward = model.forward
 
     model.forward = types.MethodType(_qwen2vl_patched_forward, model)
     model.prepare_inputs_for_generation = types.MethodType(
