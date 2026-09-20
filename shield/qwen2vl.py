@@ -38,14 +38,21 @@ def get_qwen2vl_bias(sample_num, pixel_values, image_grid_thw, vision_tower, cac
 
     if cache_key not in _qwen2vl_bias_cache:
         t, h, w = [int(v) for v in image_grid_thw[0].tolist()]
-        merged_tokens = (h // 2) * (w // 2)
-        randn = torch.rand(
-            (sample_num * t * h * w, pixel_values.size(-1)),
-            device=pixel_values.device,
-        ).to(vision_tower.get_dtype())
-        grid = image_grid_thw.repeat(sample_num, 1)
-        feats = vision_tower(randn, grid_thw=grid)
-        feats = feats.view(sample_num, merged_tokens, -1)
+        # Process one noise image at a time: the Qwen2-VL ViT SDPA attention
+        # materializes [heads, seq, seq] over the WHOLE input, so batching all
+        # sample_num images into one [sample_num*t*h*w] tensor allocates
+        # heads * (sample_num*t*h*w)^2 elements (e.g. ~75 GiB) and OOMs.
+        # The bias lives in the PRE-merger patch space, matching the image
+        # features that SHIELD weighting operates on.
+        single_grid = image_grid_thw[0].unsqueeze(0)
+        feats_list = []
+        for _ in range(sample_num):
+            randn = torch.rand(
+                (t * h * w, pixel_values.size(-1)),
+                device=pixel_values.device,
+            ).to(vision_tower.get_dtype())
+            feats_list.append(_qwen2vl_encode_premerger(vision_tower, randn, single_grid))
+        feats = torch.stack(feats_list)
         _qwen2vl_bias_cache[cache_key] = feats.mean(dim=0).unsqueeze(0).half()
 
     return _qwen2vl_bias_cache[cache_key]
@@ -55,6 +62,27 @@ def clear_qwen2vl_bias_cache():
     """Clear the cached Qwen2-VL bias features."""
     global _qwen2vl_bias_cache
     _qwen2vl_bias_cache = {}
+
+
+def _qwen2vl_encode_premerger(vision_tower, pixel_values, grid_thw):
+    """Run the Qwen2-VL vision tower WITHOUT the patch merger.
+
+    The LLaVA wrapper applies SHIELD weighting between the vision tower and
+    the projector (wrapper.py). In Qwen2-VL the merger lives inside
+    ``vision_tower.forward``, so we replicate the tower body here and let the
+    caller apply ``vision_tower.merger`` afterwards. Returns
+    ``[t*h*w, vision_hidden]`` patch-level features.
+    """
+    hidden_states = vision_tower.patch_embed(pixel_values)
+    rotary_pos_emb = vision_tower.rot_pos_emb(grid_thw)
+    rotary_pos_emb = rotary_pos_emb.to(hidden_states.device, dtype=hidden_states.dtype)
+    cu_seqlens = torch.repeat_interleave(
+        grid_thw[:, 1] * grid_thw[:, 2], grid_thw[:, 0]
+    ).cumsum(dim=0, dtype=torch.int32)
+    cu_seqlens = F.pad(cu_seqlens, (1, 0), value=0)
+    for blk in vision_tower.blocks:
+        hidden_states = blk(hidden_states, cu_seqlens=cu_seqlens, rotary_pos_emb=rotary_pos_emb)
+    return hidden_states
 
 
 def qwen2vl_clip_attack(image, qwen_processor, text, epsilon, num_steps, c, lr,
@@ -181,7 +209,7 @@ def _qwen2vl_patched_forward(
 
     vision_tower = self.visual
     pixel_values = pixel_values.type(vision_tower.get_dtype())
-    image_embeds = vision_tower(pixel_values, grid_thw=image_grid_thw)
+    image_embeds = _qwen2vl_encode_premerger(vision_tower, pixel_values, image_grid_thw)
 
     if use_cd_branch:
         top_k_indices = None
@@ -209,6 +237,8 @@ def _qwen2vl_patched_forward(
             )
         else:
             modified_input_ids = input_ids
+
+    enhanced = vision_tower.merger(enhanced)
 
     inputs_embeds = self.model.embed_tokens(modified_input_ids)
     image_mask = (

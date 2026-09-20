@@ -128,7 +128,7 @@ def eval_model(args):
         image = image_inputs[0]
         image_grid_thw = inputs.image_grid_thw
 
-        shield_kw = model.shield_prepare(image, inputs.pixel_values[0], image_file, image_grid_thw, use_cd=args.use_cd)
+        shield_kw = model.shield_prepare(image, inputs.pixel_values, image_file, image_grid_thw, use_cd=args.use_cd)
 
         with torch.inference_mode():
             output_ids = model.generate(

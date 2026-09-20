@@ -124,7 +124,7 @@ def eval_model(args):
                     ).to("cuda")
                     image = image_inputs[0]
                     image_grid_thw = inputs.image_grid_thw
-                    pixel_values = inputs.pixel_values[0]
+                    pixel_values = inputs.pixel_values
                     shield_kw = model.shield_prepare(image, pixel_values, image_file, image_grid_thw, use_cd=args.use_cd)
                     cached_image = image_file
 
