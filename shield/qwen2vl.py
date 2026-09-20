@@ -270,7 +270,18 @@ def _qwen2vl_patched_prepare_inputs_for_generation(
     use_cache=True,
     **kwargs,
 ):
+    # transformers >= 4.42 pre-creates an EMPTY DynamicCache in model_kwargs, so
+    # ``past_key_values is not None`` is True even on the pre-fill step. Detect the
+    # pre-fill step by the cache length instead (LLaVA/4.31 passes None here).
+    past_len = 0
     if past_key_values is not None:
+        past_len = (
+            past_key_values.get_seq_length()
+            if hasattr(past_key_values, "get_seq_length")
+            else past_key_values[0][0].shape[2]
+        )
+
+    if past_len > 0:
         input_ids = input_ids[:, -1:]
         pixel_values = None
         image_grid_thw = None
@@ -312,7 +323,15 @@ def _qwen2vl_patched_prepare_inputs_for_generation_cd(
     use_cache=True,
     **kwargs,
 ):
+    past_len = 0
     if past_key_values is not None:
+        past_len = (
+            past_key_values.get_seq_length()
+            if hasattr(past_key_values, "get_seq_length")
+            else past_key_values[0][0].shape[2]
+        )
+
+    if past_len > 0:
         input_ids = input_ids[:, -1:]
         pixel_values = None
         image_grid_thw = None
