@@ -45,6 +45,17 @@ done
 
 answers_file="$OUTPUT_DIR/llava15_chair_answers_bias_weight${BIAS_WEIGHT}_bias_sample_num${BIAS_SAMPLE_NUM}_alpha${CD_ALPHA}_beta${CD_BETA}_the${THE}_gamma${GAMMA_GAIN}_per${GAIN_PER}_cw_epsilon${CW_EPSILON}_cw_c${CW_C}_cw_lr${CW_LR}_seed${SEED}.jsonl"
 
+caption_command=(
+    python experiments/eval/generate_first_captions_llava.py
+    --model-path "$MODEL_PATH"
+    --image-folder "$COCO_IMAGE_DIR"
+    --question-file "$CHAIR_QUESTION_FILE"
+    --output-file "$CHAIR_CAPTION_FILE"
+    --prompt "Describe this image."
+    --max-new-tokens 70
+    --seed "$SEED"
+)
+
 inference_command=(
     python experiments/eval/chair-llava.py
     --model-path "$MODEL_PATH"
@@ -87,6 +98,8 @@ fi
 if [[ -n "${HF_HUB_DISABLE_XET:-}" ]]; then
     printf 'HF_HUB_DISABLE_XET=%s\n' "$HF_HUB_DISABLE_XET"
 fi
+printf '%q ' "${caption_command[@]}"
+printf '\n'
 printf '%q ' "${inference_command[@]}"
 printf '\n'
 printf '%q ' "${evaluation_command[@]}"
@@ -102,5 +115,9 @@ fi
 if [[ -n "${HF_HUB_DISABLE_XET:-}" ]]; then
     export HF_HUB_DISABLE_XET
 fi
+
+printf 'Generating first-round captions if pending...\n'
+CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES" "${caption_command[@]}"
+
 CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES" "${inference_command[@]}"
 "${evaluation_command[@]}"
