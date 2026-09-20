@@ -450,7 +450,7 @@ def wrap_qwen2vl(model, tokenizer, caption_file=None, qwen_processor=None, **kwa
         "defaults": defaults,
     }
 
-    model._shield_original_forward = type(model).forward
+    model._shield_original_forward = model.forward
 
     model.forward = types.MethodType(_qwen2vl_patched_forward, model)
     model.prepare_inputs_for_generation = types.MethodType(
