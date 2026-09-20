@@ -45,9 +45,25 @@ def eval_model(args):
     questions = [json.loads(q) for q in open(os.path.expanduser(args.question_file), "r")]
     answers_file = os.path.expanduser(args.answers_file)
     os.makedirs(os.path.dirname(answers_file), exist_ok=True)
-    ans_file = open(answers_file, "w")
+
+    done_ids = set()
+    if os.path.exists(answers_file):
+        with open(answers_file, "r") as f:
+            for line in f:
+                if line.strip():
+                    try:
+                        entry = json.loads(line)
+                        done_ids.add(entry["question_id"])
+                    except json.JSONDecodeError:
+                        pass
+        if done_ids:
+            print(f"Resuming: {len(done_ids)}/{len(questions)} answers already saved")
+
+    ans_file = open(answers_file, "a")
     for line in tqdm(questions):
         idx = line["question_id"]
+        if idx in done_ids:
+            continue
         image_file = line["image"]
         qs = line["text"]
         cur_prompt = qs
