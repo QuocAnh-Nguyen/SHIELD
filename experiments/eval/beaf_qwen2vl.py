@@ -151,7 +151,7 @@ def eval_model(args):
                     output_ids = model.generate(
                         inputs_q.input_ids,
                         **shield_kw,
-                        do_sample=True,
+                        do_sample=False,
                         temperature=args.temperature,
                         top_p=args.top_p,
                         top_k=args.top_k,
