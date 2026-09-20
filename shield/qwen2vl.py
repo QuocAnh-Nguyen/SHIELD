@@ -185,7 +185,7 @@ def _qwen2vl_patched_forward(
     bias_sample_num=None,
     **kwargs,
 ):
-    from transformers.modeling_outputs import BaseModelOutputWithPast
+    from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 
     if pixel_values is None or inputs_embeds is not None:
         return self._shield_original_forward(
@@ -281,8 +281,9 @@ def _qwen2vl_patched_forward(
 
     if not return_dict:
         return (logits,) + outputs[1:]
-    return BaseModelOutputWithPast(
-        last_hidden_state=outputs.last_hidden_state,
+    return CausalLMOutputWithPast(
+        loss=None,
+        logits=logits,
         past_key_values=outputs.past_key_values,
         hidden_states=outputs.hidden_states,
         attentions=outputs.attentions,
@@ -315,6 +316,16 @@ def _qwen2vl_patched_prepare_inputs_for_generation(
         input_ids = input_ids[:, -1:]
         pixel_values = None
         image_grid_thw = None
+        # The cache includes the inserted caption tokens but the model_kwargs
+        # attention_mask only covers the original prompt. Pad with ones so the
+        # causal mask matches the cache length on decode steps.
+        if attention_mask is not None and attention_mask.shape[1] < past_len + 1:
+            pad = torch.ones(
+                (attention_mask.shape[0], past_len + 1 - attention_mask.shape[1]),
+                dtype=attention_mask.dtype,
+                device=attention_mask.device,
+            )
+            attention_mask = torch.cat((pad, attention_mask), dim=1)
     else:
         pixel_values = kwargs.get("images", None)
         image_grid_thw = kwargs.get("image_grid_thw", None)
@@ -365,6 +376,13 @@ def _qwen2vl_patched_prepare_inputs_for_generation_cd(
         input_ids = input_ids[:, -1:]
         pixel_values = None
         image_grid_thw = None
+        if attention_mask is not None and attention_mask.shape[1] < past_len + 1:
+            pad = torch.ones(
+                (attention_mask.shape[0], past_len + 1 - attention_mask.shape[1]),
+                dtype=attention_mask.dtype,
+                device=attention_mask.device,
+            )
+            attention_mask = torch.cat((pad, attention_mask), dim=1)
     else:
         pixel_values = kwargs.get("images_cd", None)
         image_grid_thw = kwargs.get("image_grid_thw", None)
