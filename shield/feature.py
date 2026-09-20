@@ -49,7 +49,18 @@ def compute_shield_image_weights(
     ).squeeze()
 
     similarity_text_max = torch.max(cosine_similarity, dim=0)[0]
-    top_k_indices = torch.nonzero(similarity_text_max > the).squeeze()
+    # squeeze(-1) keeps the result 1-D: plain .squeeze() on a [1, 1] nonzero
+    # result (exactly one token passing the threshold) yields a 0-dim scalar,
+    # which then collapses the indexed selection to 1-D and breaks the
+    # ``torch.max(..., dim=1)`` below.
+    top_k_indices = torch.nonzero(similarity_text_max > the).squeeze(-1)
+    if top_k_indices.numel() == 0:
+        # No caption token is relevant to this image: keep the noise-corrected
+        # features and let the caller skip caption insertion.
+        return (
+            image_features - bias_weight * bias_tensor.to(dtype=dtype, device=device),
+            top_k_indices,
+        )
     similarity_img_w_selected = cosine_similarity[:, top_k_indices]
     similarity_img = torch.max(similarity_img_w_selected, dim=1)[0]
     patch_weight = maximize_weight_difference(similarity_img, gamma=gamma_gain)
