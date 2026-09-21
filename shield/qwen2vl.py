@@ -303,55 +303,54 @@ def _qwen2vl_patched_prepare_inputs_for_generation(
     use_cache=True,
     **kwargs,
 ):
-    # transformers >= 4.42 pre-creates an EMPTY DynamicCache in model_kwargs, so
-    # ``past_key_values is not None`` is True even on the pre-fill step. Detect the
-    # pre-fill step by the cache length instead (LLaVA/4.31 passes None here).
-    past_len = 0
-    if past_key_values is not None:
+    """Delegate to the stock 4.47 prepare, which handles ``cache_position``,
+    ``position_ids`` and cache slicing correctly (LLaVA/4.31-style hand-rolled
+    logic broke under the 4.47 pre-created empty DynamicCache), then inject the
+    SHIELD params the patched forward expects."""
+    kwargs = dict(kwargs)
+    if "images" in kwargs and "pixel_values" not in kwargs:
+        kwargs["pixel_values"] = kwargs.pop("images")
+
+    model_inputs = self._shield_stock_prepare(
+        input_ids,
+        past_key_values=past_key_values,
+        attention_mask=attention_mask,
+        inputs_embeds=inputs_embeds,
+        cache_position=cache_position,
+        position_ids=position_ids,
+        use_cache=use_cache,
+        **kwargs,
+    )
+    model_inputs["use_cd_branch"] = False
+    model_inputs.setdefault("cap_tensor", None)
+    model_inputs.setdefault("the", None)
+    model_inputs.setdefault("gamma_gain", None)
+    model_inputs.setdefault("gamma_reduce", None)
+    model_inputs.setdefault("input_cap_ids", None)
+    model_inputs.setdefault("gain_per", None)
+    model_inputs.setdefault("reduce_per", None)
+    model_inputs.setdefault("bias_weight", None)
+    model_inputs.setdefault("bias_sample_num", None)
+
+    # The cache may include the inserted caption tokens but the attention_mask
+    # only covers the original prompt; pad with ones so the causal mask matches
+    # the cache length on decode steps.
+    am = model_inputs.get("attention_mask")
+    pkv = model_inputs.get("past_key_values")
+    if am is not None and pkv is not None:
         past_len = (
-            past_key_values.get_seq_length()
-            if hasattr(past_key_values, "get_seq_length")
-            else past_key_values[0][0].shape[2]
+            pkv.get_seq_length()
+            if hasattr(pkv, "get_seq_length")
+            else pkv[0][0].shape[2]
         )
-
-    if past_len > 0:
-        input_ids = input_ids[:, -1:]
-        pixel_values = None
-        image_grid_thw = None
-        # The cache includes the inserted caption tokens but the model_kwargs
-        # attention_mask only covers the original prompt. Pad with ones so the
-        # causal mask matches the cache length on decode steps.
-        if attention_mask is not None and attention_mask.shape[1] < past_len + 1:
+        if am.shape[1] < past_len + 1:
             pad = torch.ones(
-                (attention_mask.shape[0], past_len + 1 - attention_mask.shape[1]),
-                dtype=attention_mask.dtype,
-                device=attention_mask.device,
+                (am.shape[0], past_len + 1 - am.shape[1]),
+                dtype=am.dtype,
+                device=am.device,
             )
-            attention_mask = torch.cat((pad, attention_mask), dim=1)
-    else:
-        pixel_values = kwargs.get("images", None)
-        image_grid_thw = kwargs.get("image_grid_thw", None)
-        attention_mask = kwargs.get("attention_mask", attention_mask)
+            model_inputs["attention_mask"] = torch.cat((pad, am), dim=1)
 
-    model_inputs = {
-        "input_ids": input_ids,
-        "attention_mask": attention_mask,
-        "position_ids": None,
-        "past_key_values": past_key_values,
-        "use_cache": use_cache,
-        "pixel_values": pixel_values,
-        "image_grid_thw": image_grid_thw,
-        "cap_tensor": kwargs.get("cap_tensor", None),
-        "the": kwargs.get("the", None),
-        "gamma_gain": kwargs.get("gamma_gain", None),
-        "gamma_reduce": kwargs.get("gamma_reduce", None),
-        "input_cap_ids": kwargs.get("input_cap_ids", None),
-        "gain_per": kwargs.get("gain_per", None),
-        "reduce_per": kwargs.get("reduce_per", None),
-        "use_cd_branch": False,
-        "bias_weight": kwargs.get("bias_weight", None),
-        "bias_sample_num": kwargs.get("bias_sample_num", None),
-    }
     return model_inputs
 
 
@@ -366,49 +365,48 @@ def _qwen2vl_patched_prepare_inputs_for_generation_cd(
     use_cache=True,
     **kwargs,
 ):
-    past_len = 0
-    if past_key_values is not None:
+    """Stock-prepare delegate for the contrastive (CD) branch."""
+    kwargs = dict(kwargs)
+    if "images_cd" in kwargs and "pixel_values" not in kwargs:
+        kwargs["pixel_values"] = kwargs.pop("images_cd")
+
+    model_inputs = self._shield_stock_prepare(
+        input_ids,
+        past_key_values=past_key_values,
+        attention_mask=attention_mask,
+        inputs_embeds=inputs_embeds,
+        cache_position=cache_position,
+        position_ids=position_ids,
+        use_cache=use_cache,
+        **kwargs,
+    )
+    model_inputs["use_cd_branch"] = True
+    model_inputs.setdefault("cap_tensor", None)
+    model_inputs.setdefault("the", None)
+    model_inputs.setdefault("gamma_gain", None)
+    model_inputs.setdefault("gamma_reduce", None)
+    model_inputs.setdefault("input_cap_ids", None)
+    model_inputs.setdefault("gain_per", None)
+    model_inputs.setdefault("reduce_per", None)
+    model_inputs.setdefault("bias_weight", None)
+    model_inputs.setdefault("bias_sample_num", None)
+
+    am = model_inputs.get("attention_mask")
+    pkv = model_inputs.get("past_key_values")
+    if am is not None and pkv is not None:
         past_len = (
-            past_key_values.get_seq_length()
-            if hasattr(past_key_values, "get_seq_length")
-            else past_key_values[0][0].shape[2]
+            pkv.get_seq_length()
+            if hasattr(pkv, "get_seq_length")
+            else pkv[0][0].shape[2]
         )
-
-    if past_len > 0:
-        input_ids = input_ids[:, -1:]
-        pixel_values = None
-        image_grid_thw = None
-        if attention_mask is not None and attention_mask.shape[1] < past_len + 1:
+        if am.shape[1] < past_len + 1:
             pad = torch.ones(
-                (attention_mask.shape[0], past_len + 1 - attention_mask.shape[1]),
-                dtype=attention_mask.dtype,
-                device=attention_mask.device,
+                (am.shape[0], past_len + 1 - am.shape[1]),
+                dtype=am.dtype,
+                device=am.device,
             )
-            attention_mask = torch.cat((pad, attention_mask), dim=1)
-    else:
-        pixel_values = kwargs.get("images_cd", None)
-        image_grid_thw = kwargs.get("image_grid_thw", None)
-        attention_mask = kwargs.get("attention_mask", attention_mask)
+            model_inputs["attention_mask"] = torch.cat((pad, am), dim=1)
 
-    model_inputs = {
-        "input_ids": input_ids,
-        "attention_mask": attention_mask,
-        "position_ids": None,
-        "past_key_values": past_key_values,
-        "use_cache": use_cache,
-        "pixel_values": pixel_values,
-        "image_grid_thw": image_grid_thw,
-        "cap_tensor": kwargs.get("cap_tensor", None),
-        "the": kwargs.get("the", None),
-        "gamma_gain": kwargs.get("gamma_gain", None),
-        "gamma_reduce": kwargs.get("gamma_reduce", None),
-        "input_cap_ids": kwargs.get("input_cap_ids", None),
-        "gain_per": kwargs.get("gain_per", None),
-        "reduce_per": kwargs.get("reduce_per", None),
-        "use_cd_branch": True,
-        "bias_weight": kwargs.get("bias_weight", None),
-        "bias_sample_num": kwargs.get("bias_sample_num", None),
-    }
     return model_inputs
 
 
@@ -520,6 +518,9 @@ def wrap_qwen2vl(model, tokenizer, caption_file=None, qwen_processor=None, **kwa
     }
 
     model._shield_original_forward = model.forward
+    # stock prepare for the 4.47-era transformers; the patched prepares
+    # delegate to it (see _qwen2vl_patched_prepare_inputs_for_generation)
+    model._shield_stock_prepare = model.prepare_inputs_for_generation
 
     model.forward = types.MethodType(_qwen2vl_patched_forward, model)
     model.prepare_inputs_for_generation = types.MethodType(
