@@ -109,7 +109,7 @@ def eval_model(args):
                             "role": "user",
                             "content": [
                                 {"type": "image", "image": image_path},
-                                {"type": "text", "text": qs_text + " Please answer with yes or no."},
+                                {"type": "text", "text": qs_text},
                             ],
                         }
                     ]
@@ -133,7 +133,7 @@ def eval_model(args):
                         "role": "user",
                         "content": [
                             {"type": "image", "image": image_path},
-                            {"type": "text", "text": qs_text + " Please answer with yes or no."},
+                            {"type": "text", "text": qs_text},
                         ],
                     }
                 ]

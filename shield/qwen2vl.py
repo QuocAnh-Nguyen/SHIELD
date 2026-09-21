@@ -211,7 +211,9 @@ def _qwen2vl_patched_forward(
     pixel_values = pixel_values.type(vision_tower.get_dtype())
     image_embeds = _qwen2vl_encode_premerger(vision_tower, pixel_values, image_grid_thw)
 
-    if use_cd_branch:
+    if use_cd_branch or cap_tensor is None:
+        # CD contrastive pass, or generate() called with incomplete SHIELD
+        # inputs: process the image plainly (no weighting, no caption insert).
         top_k_indices = None
         enhanced = image_embeds
         modified_input_ids = input_ids
