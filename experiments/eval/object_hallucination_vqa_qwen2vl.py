@@ -196,6 +196,10 @@ if __name__ == "__main__":
     set_seed(args.seed)
     eval_model(args)
 
-    shield.clear_bias_cache()
-    shield.clear_qwen2vl_bias_cache()
-    shield.clear_clip_cache()
+    from shield.feature import clear_bias_cache
+    from shield.qwen2vl import clear_qwen2vl_bias_cache
+    from shield.clip_utils import clear_clip_cache
+
+    clear_bias_cache()
+    clear_qwen2vl_bias_cache()
+    clear_clip_cache()
