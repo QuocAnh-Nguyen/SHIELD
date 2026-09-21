@@ -380,14 +380,16 @@ class CHAIR(object):
    
             output['sentences'].append(cap_dict)
  
-        chair_s = (num_hallucinated_caps/num_caps)
-        chair_i = (hallucinated_word_count/coco_word_count)
+        chair_s = (num_hallucinated_caps/num_caps) if num_caps > 0 else 0.
+        chair_i = (hallucinated_word_count/coco_word_count) if coco_word_count > 0 else 0.
         # add
-        recall = num_recall_gt_objects / num_gt_objects
+        recall = (num_recall_gt_objects / num_gt_objects) if num_gt_objects > 0 else 0.
+        len_avg = (sum([len(c['words']) for c in output['sentences']]) / num_caps) if num_caps > 0 else 0.
 
         output['overall_metrics'] = {'CHAIRs': chair_s,
                                      'CHAIRi': chair_i,
-                                     'Recall': recall}
+                                     'Recall': recall,
+                                     'Len': len_avg}
     
         return output 
 
@@ -419,7 +421,7 @@ def print_metrics(hallucination_cap_dict, quiet=False):
     
     for k, v in sentence_metrics.items():
         k_str = str(k).ljust(10)
-        v_str = f'{v * 100:.01f}'
+        v_str = f'{v:.01f}' if k == 'Len' else f'{v * 100:.01f}'
         print(k_str, v_str, sep=': ')
  
 if __name__ == '__main__':

@@ -126,27 +126,32 @@ def eval_model(args):
         image = image_inputs[0]
         image_grid_thw = inputs.image_grid_thw
 
-        shield_kw = model.shield_prepare(image, inputs.pixel_values[0], image_file, image_grid_thw, use_cd=args.use_cd)
+        shield_kw = model.shield_prepare(image, inputs.pixel_values, image_file, image_grid_thw, use_cd=args.use_cd)
 
-        with torch.inference_mode():
-            output_ids = model.generate(
-                inputs.input_ids,
-                **shield_kw,
-                do_sample=args.do_sample,
-                temperature=args.temperature,
-                top_p=args.top_p,
-                top_k=args.top_k,
-                max_new_tokens=args.max_new_tokens,
-                use_cache=True,
-            )
+        try:
+            with torch.inference_mode():
+                output_ids = model.generate(
+                    inputs.input_ids,
+                    **shield_kw,
+                    do_sample=args.do_sample,
+                    temperature=args.temperature,
+                    top_p=args.top_p,
+                    top_k=args.top_k,
+                    max_new_tokens=args.max_new_tokens,
+                    use_cache=True,
+                )
 
-        generated_ids_trimmed = [
-            out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, output_ids)
-        ]
-        outputs = processor.batch_decode(
-            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
-        )[0]
-        outputs = outputs.strip()
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, output_ids)
+            ]
+            outputs = processor.batch_decode(
+                generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+            )[0]
+            outputs = outputs.strip()
+        except Exception as e:
+            torch.cuda.empty_cache()
+            print(f"[ERROR] CHAIR image {image_file} (id {image_id}): {type(e).__name__}: {e}")
+            outputs = ""
 
         ans_file.write(json.dumps({
             "image_id": image_id,
@@ -175,7 +180,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_cd", action='store_true', default=False)
     parser.add_argument("--cd_alpha", type=float, default=2.0)
     parser.add_argument("--cd_beta", type=float, default=0.35)
-    parser.add_argument("--seed", type=int, default=22)
+    parser.add_argument("--seed", type=int, default=2027)
     parser.add_argument("--the", type=float, default=0.002)
     parser.add_argument("--gamma_gain", type=float, default=3.0)
     parser.add_argument("--gamma_reduce", type=float, default=3.0)
@@ -192,6 +197,10 @@ if __name__ == "__main__":
     set_seed(args.seed)
     eval_model(args)
 
-    shield.clear_bias_cache()
-    shield.clear_qwen2vl_bias_cache()
-    shield.clear_clip_cache()
+    from shield.feature import clear_bias_cache
+    from shield.qwen2vl import clear_qwen2vl_bias_cache
+    from shield.clip_utils import clear_clip_cache
+
+    clear_bias_cache()
+    clear_qwen2vl_bias_cache()
+    clear_clip_cache()
