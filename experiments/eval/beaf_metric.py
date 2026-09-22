@@ -1,10 +1,38 @@
 import json
+import re
 import argparse
 
 
 def load_json(path):
     with open(path, 'r') as f:
         return json.load(f)
+
+
+def parse_yes_no(text):
+    """Parse a yes/no answer from free-form model output.
+
+    Free-form models (run without the 'Please answer with yes or no.' suffix)
+    may answer e.g. 'No, there is no truck', 'There is no existence of
+    scissors', 'Yes, there is a car', or simply 'no'. Rules:
+
+    1. A leading yes/affirmation token wins.
+    2. A leading no/negation token wins (no, not, none, never, cannot...).
+    3. Otherwise the first standalone yes/no word in the text decides.
+    Returns 'yes', 'no', or None when unparseable.
+    """
+    s = str(text).strip().lower()
+    if not s:
+        return None
+    if re.match(r"^(yes|yeah|yep|y)\b", s):
+        return 'yes'
+    if re.match(r"^(no|not|none|never|nope|n)\b", s):
+        return 'no'
+    m = re.search(r"\b(yes|no)\b", s)
+    if m:
+        return m.group(1)
+    if re.search(r"\b(cannot|can't|don't|doesn't|wrong|without)\b", s):
+        return 'no'
+    return None
 
 
 def answer_check(beaf_qna, model_answers):
@@ -18,11 +46,8 @@ def answer_check(beaf_qna, model_answers):
     unparseable = []
     for (q, a) in zip(beaf_qna, model_answers):
         assert q['id'] == a['id']
-        if 'yes' in a['answer'].lower():
-            answer = 'yes'
-        elif 'no' in a['answer'].lower():
-            answer = 'no'
-        else:
+        answer = parse_yes_no(a['answer'])
+        if answer is None:
             unparseable.append((q['id'], a['answer']))
             answer = 'no'
 
@@ -45,11 +70,8 @@ def answer_check(beaf_qna, model_answers):
         total_qna = beaf_qna.copy()
 
     if unparseable:
-        raise ValueError(
-            f"{len(unparseable)} answers contain neither 'yes' nor 'no' "
-            f"(e.g. ids {[i for i, _ in unparseable[:10]]}) - "
-            "review and normalize them in the answers file before scoring"
-        )
+        print(f"WARNING: {len(unparseable)} answers were unparseable and defaulted to 'no' "
+              f"(e.g. ids {[i for i, _ in unparseable[:10]]})")
 
     return orig_pairs, total_qna
 
@@ -107,11 +129,30 @@ def evaluate(args):
     print(f" {TU:.2f}  |  {IG:.2f}  |  {SBp:.2f} |  {SBn:.2f} |  {ID:.2f}  |   {F1_TUID:.2f}")
     print("=========================================================")
 
+    if args.save_path:
+        detail = []
+        for q in total_qna:
+            detail.append({
+                'id': q['id'],
+                'image': q['image'],
+                'question': q['question'],
+                'gt': q['gt'],
+                'orig_img': q['orig_img'],
+                'removed_q': q['removed_q'],
+                'verdict': q['answer'],
+                'raw_answer': next(a['answer'] for a in model_answers if a['id'] == q['id']),
+            })
+        with open(args.save_path, 'w') as f:
+            json.dump(detail, f, indent=2, ensure_ascii=False)
+        print(f"Saved per-question verdicts to {args.save_path}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--qna-path", type=str, default="./beaf_qna.json")
     parser.add_argument("--model-answers", type=str, default="./answer_gpt4o.json")
+    parser.add_argument("--save-path", type=str, default="",
+                        help="save per-question TP/FP/TN/FN verdicts to this json file")
     args = parser.parse_args()
 
     evaluate(args)
