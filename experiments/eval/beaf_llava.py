@@ -50,7 +50,7 @@ def answer_one_question(args, model, tokenizer, line, image, image_tensor, shiel
         output_ids = model.generate(
             input_ids,
             **shield_kw,
-            do_sample=True,
+            do_sample=False,
             temperature=args.temperature,
             top_p=args.top_p,
             top_k=args.top_k,
@@ -74,7 +74,7 @@ def eval_model(args):
     disable_torch_init()
     model_path = os.path.expanduser(args.model_path)
     model_name = get_model_name_from_path(model_path)
-    tokenizer, model, image_processor, context_len = load_pretrained_model(model_path, args.model_base, model_name)
+    tokenizer, model, image_processor, context_len = load_pretrained_model(model_path, args.model_base, model_name, torch_dtype=torch.bfloat16)
 
     shield.wrap(model, tokenizer,
         caption_file=args.caption_file,

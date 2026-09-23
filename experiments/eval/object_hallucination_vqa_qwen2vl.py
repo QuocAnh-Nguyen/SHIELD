@@ -26,7 +26,7 @@ def eval_model(args):
 
     model_path = os.path.expanduser(args.model_path)
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        model_path, torch_dtype=torch.float16, device_map="auto"
+        model_path, torch_dtype=torch.bfloat16, device_map="auto"
     )
     min_pixels = 256 * 28 * 28
     max_pixels = 1280 * 28 * 28
@@ -134,7 +134,7 @@ def eval_model(args):
             output_ids = model.generate(
                 inputs.input_ids,
                 **shield_kw,
-                do_sample=True,
+                do_sample=False,
                 temperature=args.temperature,
                 top_p=args.top_p,
                 top_k=args.top_k,
